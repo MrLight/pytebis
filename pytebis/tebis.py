@@ -7,13 +7,7 @@ import pandas as pd
 import json
 from json import JSONEncoder
 import simplejson
-
-
-# for DB Access
-# you need an actual version of instaclient installed. For Tebis Communication  e.g. instantclient_18_3
-# see: https://www.oracle.com/database/technologies/instant-client/winx64-64-downloads.html
-
-import cx_Oracle
+from pytebis.lazyloader import LazyLoader
 
 
 class Tebis():
@@ -24,7 +18,8 @@ class Tebis():
             'host': None,
             'port': 4712,
             'configfile': 'd:/tebis/Anlage/Config.txt',
-            'dbConn': {
+            'useOracle': None,
+            'OracleDbConn': {
                 'host': None,
                 'port': 1521,
                 'user': None,
@@ -33,14 +28,19 @@ class Tebis():
             }
         }
         self.config = selective_merge(default_conf, configuration)
+        if self.config['OracleDbConn']['host'] is not None and (self.config['useOracle'] is True or self.config['useOracle'] is None):
+            if self.config['useOracle'] is None:
+                self.config['useOracle'] = True
         if configfile is not None:
             self.config['configfile'] = configfile
         if host is not None:
             self.config['host'] = host
         if port is not None:
             self.config['port'] = port
-        # self.loadMSTS()
-        self.loadTree()
+        if self.config['useOracle'] is True:
+            self.loadTree()
+        else:
+            self.loadMSTS()
 
     def getDataAsNP(self, names, start, end, rate=1):
         ids = []
@@ -73,7 +73,10 @@ class Tebis():
         return df
 
     def getMapTreeGroupById(self, id):
-        return self.tebisMapTreeGroupById.get(id)
+        if self.config['useOracle'] is True:
+            return self.tebisMapTreeGroupById.get(id)
+        else:
+            raise TebisOracleDBException('no DbConnection specified - you need to specifiy a valid OracleDbConn in config')
 
     def getMst(self, id=None, name=None):
         if id is not None:
@@ -363,8 +366,15 @@ class Tebis():
     """    
     def loadTree(self):
         msts = []
-        CONN_STR = '{user}/{psw}@{host}:{port}/{service}'.format(**self.config['dbConn'])
-        conn = cx_Oracle.connect(CONN_STR, encoding='UTF-8', nencoding='UTF-8')
+        CONN_STR = '{user}/{psw}@{host}:{port}/{service}'.format(**self.config['OracleDbConn'])
+        # for DB Access
+        # you need an actual version of instaclient installed. For Tebis Communication  e.g. instantclient_18_3
+        # see: https://www.oracle.com/database/technologies/instant-client/winx64-64-downloads.html
+        try:
+            cx_Oracle = LazyLoader('cx_Oracle', globals(), 'cx_Oracle')
+            conn = cx_Oracle.connect(CONN_STR, encoding='UTF-8', nencoding='UTF-8')
+        except ModuleNotFoundError:
+            raise TebisOracleDBException('No Module for OracleDB found. Do "pip install cx_oracle" and install Oracle instant-client! (https://www.oracle.com/database/technologies/instant-client/winx64-64-downloads.html)')
         cursor = conn.cursor()
         mstsQuery = cursor.execute('SELECT * FROM TB_TWO.TB_MSTS order by MSTINDEX', {}).fetchall()
         cursor.close()
@@ -375,11 +385,9 @@ class Tebis():
         cursor.close()
         for mst in vmstsQuery:
             msts.append(_TebisVMST(mst))
-        
         self.msts = msts
         self.mstByName = build_dict(self.msts, key="name")
         self.mstById = build_dict(self.msts, key="id")
-        
         cursor = conn.cursor()
         treeQuery = cursor.execute('SELECT * FROM TB_TWO.TB_HI order by HIINDEX, HIPARENT, HIPOS', {}).fetchall()
         cursor.close()
@@ -424,6 +432,7 @@ class Tebis():
         self.tebisMapTreeGroupById = build_dict(self.tebisMapTreeGroups, key="treeId")
         None
         conn.close()
+        
     
     """
     lädt die Messstellen direkt über die SocketVerbindung
@@ -742,6 +751,10 @@ class _TebisTreeElement:
             if n: 
                 return n
         return None
+
+
+class TebisOracleDBException(Exception):
+    ''' raise if try to get DB-Information without a DB Connection specifeied '''
 
 
 class TebisReceiveException(Exception):
