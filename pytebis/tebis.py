@@ -7,12 +7,15 @@ import pandas as pd
 import json
 from json import JSONEncoder
 import simplejson
+from io import StringIO
+import csv
 from pytebis.lazyloader import LazyLoader
 
 
 class Tebis():
     '''Tebis Communication class
     '''
+
     def __init__(self, configfile=None, sock=None, host=None, port=None, dbConn=None, configuration=None):
         default_conf = {
             'host': None,
@@ -37,10 +40,13 @@ class Tebis():
             self.config['host'] = host
         if port is not None:
             self.config['port'] = port
+        self.loadGroups()
+        self.loadReductions()
+        self.loadMsts()
         if self.config['useOracle'] is True:
             self.loadTree()
         else:
-            self.loadMSTS()
+            self.loadMsts()
 
     def getDataAsNP(self, names, start, end, rate=1):
         ids = []
@@ -76,7 +82,8 @@ class Tebis():
         if self.config['useOracle'] is True:
             return self.tebisMapTreeGroupById.get(id)
         else:
-            raise TebisOracleDBException('no DbConnection specified - you need to specifiy a valid OracleDbConn in config')
+            raise TebisOracleDBException(
+                'no DbConnection specified - you need to specifiy a valid OracleDbConn in config')
 
     def getMst(self, id=None, name=None):
         if id is not None:
@@ -133,7 +140,7 @@ class Tebis():
         error = int(header[1])
         size = int(header[2])
         if error == 1:
-            raise TebisReceiveException
+            raise TebisException
         while bytes_recd < size:
             chunk = self.sock.recv(min(size - bytes_recd, 4096))
             if chunk == '':
@@ -185,21 +192,25 @@ class Tebis():
     def __getValueFromBinArray(self, data, pos, bytecount, arraycount=1, type=None):
         result = [0.0, pos]
         if (bytecount == 8):
-            result[0] = struct.unpack(f'>{arraycount}d', data[pos:pos + (bytecount * arraycount)])
+            result[0] = struct.unpack(
+                f'>{arraycount}d', data[pos:pos + (bytecount * arraycount)])
             result[1] += bytecount * arraycount
         elif (bytecount == 4):
-            result[0] = struct.unpack(f'>{arraycount}i', data[pos:pos + (bytecount * arraycount)])
+            result[0] = struct.unpack(
+                f'>{arraycount}i', data[pos:pos + (bytecount * arraycount)])
             result[1] += bytecount * arraycount
         elif (bytecount == 2):
-            result[0] = struct.unpack(f'>{arraycount}h', data[pos:pos + (bytecount * arraycount)])
+            result[0] = struct.unpack(
+                f'>{arraycount}h', data[pos:pos + (bytecount * arraycount)])
             result[1] += bytecount * arraycount
         elif (bytecount == 1):
-            result[0] = struct.unpack(f'>{arraycount}b', data[pos:pos + (bytecount * arraycount)])
+            result[0] = struct.unpack(
+                f'>{arraycount}b', data[pos:pos + (bytecount * arraycount)])
             result[1] += bytecount * arraycount
         return result
 
     def __checkBinaryResultHeader(self, raw, dtype, resultarr=None, offset=0):
-        m_intPos = 0			
+        m_intPos = 0
         m_intNmbResultSet = int(raw[m_intPos])
         m_intPos += 2
         nextComma = m_intPos + raw[m_intPos:].find(b',')
@@ -237,8 +248,10 @@ class Tebis():
             while precount < m_intNmbRows:  # Schauen ob die Spalte in mehrere Blöcke aufgeteilt ist
                 Length = struct.unpack('>B', data[m_intPos:m_intPos + 1])[0]
                 m_intPos += 1
-                if Length == 255:  # Die Anzahl ist größer als ein Byte dann kommt die Anzahl als Int (4Byte)
-                    m_intLength = struct.unpack('>I', data[m_intPos:m_intPos + 4])[0]
+                # Die Anzahl ist größer als ein Byte dann kommt die Anzahl als Int (4Byte)
+                if Length == 255:
+                    m_intLength = struct.unpack(
+                        '>I', data[m_intPos:m_intPos + 4])[0]
                     m_intPos += 4
                 else:
                     m_intLength = Length
@@ -247,13 +260,17 @@ class Tebis():
                 if m_isNAN == 0:
                     segments.append([precount, m_intLength])
                 elif m_isNAN == 255:
-                    resultarr[column_name][precount:precount + m_intLength] = np.nan
+                    resultarr[column_name][precount:precount +
+                                           m_intLength] = np.nan
                 else:
                     None
                 precount += m_intLength
-            m_intByteCount = struct.unpack('>B', data[m_intPos:m_intPos + 1])[0]  # Die Breite des Datentyps in Bytes
+            # Die Breite des Datentyps in Bytes
+            m_intByteCount = struct.unpack(
+                '>B', data[m_intPos:m_intPos + 1])[0]
             m_intPos += 1
-            m_intFunction = struct.unpack('>B', data[m_intPos:m_intPos + 1])[0]  # Die Funktion 111 = Ein Wert in allen Zeilen |
+            # Die Funktion 111 = Ein Wert in allen Zeilen |
+            m_intFunction = struct.unpack('>B', data[m_intPos:m_intPos + 1])[0]
             m_intPos += 1
             if (intColType == 301):  # TimeStamp Col
                 for segment in segments:
@@ -264,7 +281,8 @@ class Tebis():
                     if offset != 0:
                         x -= 1
                     else:
-                        resultarr[column_name][y:y + m_intLength] = np.linspace(value[0], value[0] + (m_intLength * m_intStepSize) - m_intStepSize, num=m_intLength)
+                        resultarr[column_name][y:y + m_intLength] = np.linspace(value[0], value[0] + (
+                            m_intLength * m_intStepSize) - m_intStepSize, num=m_intLength)
                     m_intPos += 16
             elif (intColType == 8):  # Wert Col
                 if (m_intFunction == 109):  # ?  alle Werte nan?
@@ -279,18 +297,22 @@ class Tebis():
                     for segment in segments:
                         y = segment[0]
                         m_intLength = segment[1]
-                        values = self.__getValueFromBinArray(data, m_intPos, m_intByteCount, arraycount=m_intLength)
+                        values = self.__getValueFromBinArray(
+                            data, m_intPos, m_intByteCount, arraycount=m_intLength)
                         resultarr[column_name][y:y + m_intLength] = values[0]
                         m_intPos = int(values[1])
                 elif (m_intFunction == 111):  # Alle Werte gleich
-                    value = self.__getValueFromBin(data, m_intPos, m_intByteCount)
+                    value = self.__getValueFromBin(
+                        data, m_intPos, m_intByteCount)
                     m_intPos = int(value[1])
-                    step = self.__getValueFromBin(data, m_intPos, m_intByteCount)
+                    step = self.__getValueFromBin(
+                        data, m_intPos, m_intByteCount)
                     m_intPos = int(step[1])
                     for segment in segments:
                         y = segment[0]
                         m_intLength = segment[1]
-                        resultarr[column_name][y:y + m_intLength] = np.linspace(value[0], value[0] + (m_intLength * step[0]) - step[0], num=m_intLength)
+                        resultarr[column_name][y:y + m_intLength] = np.linspace(
+                            value[0], value[0] + (m_intLength * step[0]) - step[0], num=m_intLength)
                     None
                 elif (m_intFunction == 112):  # Gruppen gleicher Werte
                     m_intGroupCount = 0
@@ -300,18 +322,21 @@ class Tebis():
                         valcount = 0
                         while valcount < m_intSegmentLength:
                             if m_intGroupCount == 0:
-                                m_intGroupCount = struct.unpack('>B', data[m_intPos:m_intPos + 1])[0]
+                                m_intGroupCount = struct.unpack(
+                                    '>B', data[m_intPos:m_intPos + 1])[0]
                                 m_intPos += 1
                                 if m_intGroupCount == 0:
                                     break
-                                value = self.__getValueFromBin(data, m_intPos, m_intByteCount)
+                                value = self.__getValueFromBin(
+                                    data, m_intPos, m_intByteCount)
                                 m_intPos = int(value[1])
                             length = m_intGroupCount
                             if valcount + length > m_intSegmentLength:
                                 length = m_intSegmentLength - valcount
                             m_intGroupCount -= length
 
-                            resultarr[column_name][y + valcount:y + valcount + length] = value[0]
+                            resultarr[column_name][y + valcount:y +
+                                                   valcount + length] = value[0]
                             valcount += length
                 else:
                     print(m_intFunction)
@@ -324,31 +349,37 @@ class Tebis():
     berechnet den Offset anhand einer Messstelle idealerweise ist diese Messtelle nie nan
     Es wird ein größerer Zeitraum angefragt und die letzte Stelle die nicht nan ist als aktuelle Systemzeit angenommen
     """
+
     def calcTimeOffset(self):
         now = time.time()
-        timeseries = self.getBinData(ids=[100025], nNmbX=60, TimeR=int(now), nCT=1)
-        lastMeasuredTime = timeseries[~np.isnan(np.array(timeseries[timeseries.dtype.names[1]]))][-1][0]
+        timeseries = self.getBinData(
+            ids=[100025], nNmbX=60, TimeR=int(now), nCT=1)
+        lastMeasuredTime = timeseries[~np.isnan(
+            np.array(timeseries[timeseries.dtype.names[1]]))][-1][0]
         self.timeOffset = now - lastMeasuredTime
         print(self.timeOffset)
         None
     """
     Versucht den aktuellen SystemOffset zu bestimmen. Die TebisDaten sind teilweise leicht verzögert
     """
+
     def getCurrentTime(self):
         if self.timeOffset is None:
             self.calcTimeOffset()
         return time.time() - self.timeOffset - 2
-    
+
     """
     Gitb den aktuellen Messwert der in msts genannten messtellen zurück
     msts= Array mit Messtellen
     """
+
     def readCurrentValue(self, msts):
         ids = []
         for mst in msts:
             if (mst.name is not None):
                 ids.append(mst.id)
-        timeseries = self.getBinData(ids=ids, nNmbX=1, TimeR=int(self.getCurrentTime()), nCT=1)
+        timeseries = self.getBinData(
+            ids=ids, nNmbX=1, TimeR=int(self.getCurrentTime()), nCT=1)
         res = ''
         timestamp = timeseries['timestamp'][-1]
         for mst in msts:
@@ -357,31 +388,38 @@ class Tebis():
                 mst.currenTime = timestamp
                 if len(res) < 200:
                     res += f' - {mst.currentValue:.2f}'
-        print(f'{time.time()-msts[0].currenTime:.2f} {msts[0].currenTime} {res}')
+        print(
+            f'{time.time()-msts[0].currenTime:.2f} {msts[0].currenTime} {res}')
         None
 
     """
     lädt den gesamten Tree inkl. Gruppen und Messstellen
     #TODO: Events in der DB registrieren um bei Änderungen neu einzulesen
-    """    
+    """
+
     def loadTree(self):
         msts = []
-        CONN_STR = '{user}/{psw}@{host}:{port}/{service}'.format(**self.config['OracleDbConn'])
+        CONN_STR = '{user}/{psw}@{host}:{port}/{service}'.format(
+            **self.config['OracleDbConn'])
         # for DB Access
         # you need an actual version of instaclient installed. For Tebis Communication  e.g. instantclient_18_3
         # see: https://www.oracle.com/database/technologies/instant-client/winx64-64-downloads.html
         try:
             cx_Oracle = LazyLoader('cx_Oracle', globals(), 'cx_Oracle')
-            conn = cx_Oracle.connect(CONN_STR, encoding='UTF-8', nencoding='UTF-8')
+            conn = cx_Oracle.connect(
+                CONN_STR, encoding='UTF-8', nencoding='UTF-8')
         except ModuleNotFoundError:
-            raise TebisOracleDBException('No Module for OracleDB found. Do "pip install cx_oracle" and install Oracle instant-client! (https://www.oracle.com/database/technologies/instant-client/winx64-64-downloads.html)')
+            raise TebisOracleDBException(
+                'No Module for OracleDB found. Do "pip install cx_oracle" and install Oracle instant-client! (https://www.oracle.com/database/technologies/instant-client/winx64-64-downloads.html)')
         cursor = conn.cursor()
-        mstsQuery = cursor.execute('SELECT * FROM TB_TWO.TB_MSTS order by MSTINDEX', {}).fetchall()
+        mstsQuery = cursor.execute(
+            'SELECT * FROM TB_TWO.TB_MSTS order by MSTINDEX', {}).fetchall()
         cursor.close()
         for mst in mstsQuery:
             msts.append(_TebisRMST(mst))
         cursor = conn.cursor()
-        vmstsQuery = cursor.execute('SELECT * FROM TB_TWO.TB_VMSTS order by MSTINDEX', {}).fetchall()
+        vmstsQuery = cursor.execute(
+            'SELECT * FROM TB_TWO.TB_VMSTS order by MSTINDEX', {}).fetchall()
         cursor.close()
         for mst in vmstsQuery:
             msts.append(_TebisVMST(mst))
@@ -389,21 +427,25 @@ class Tebis():
         self.mstByName = build_dict(self.msts, key="name")
         self.mstById = build_dict(self.msts, key="id")
         cursor = conn.cursor()
-        treeQuery = cursor.execute('SELECT * FROM TB_TWO.TB_HI order by HIINDEX, HIPARENT, HIPOS', {}).fetchall()
+        treeQuery = cursor.execute(
+            'SELECT * FROM TB_TWO.TB_HI order by HIINDEX, HIPARENT, HIPOS', {}).fetchall()
         cursor.close()
         self.tebisTree = []
         self.tebisTree.append(_TebisTreeElement(treeQuery[0]))
         for result in treeQuery[1:]:
             actElem = _TebisTreeElement(result)
-            self.tebisTree[0].findNodeByID(actElem.parent).childs.append(actElem)
+            self.tebisTree[0].findNodeByID(
+                actElem.parent).childs.append(actElem)
         cursor = conn.cursor()
-        groupQuery = cursor.execute('SELECT * FROM TB_TWO.TB_GRPS ORDER BY GRPINDEX', {}).fetchall()
+        groupQuery = cursor.execute(
+            'SELECT * FROM TB_TWO.TB_GRPS ORDER BY GRPINDEX', {}).fetchall()
         cursor.close()
         self.tebisGrps = []
         for group in groupQuery:
             self.tebisGrps.append(_TebisGroupElement(group))
         cursor = conn.cursor()
-        groupMembersQuery = cursor.execute('SELECT * FROM TB_TWO.TB_GRP_ELEMS ORDER BY GRPINDEX, GRPPOS', {}).fetchall()
+        groupMembersQuery = cursor.execute(
+            'SELECT * FROM TB_TWO.TB_GRP_ELEMS ORDER BY GRPINDEX, GRPPOS', {}).fetchall()
         cursor.close()
         i = 0
         for grp in self.tebisGrps:
@@ -418,7 +460,8 @@ class Tebis():
         self.tebisGrpsById = build_dict(self.tebisGrps, key="id")
 
         cursor = conn.cursor()
-        groupQuery = cursor.execute('SELECT * FROM TB_TWO.TB_MAP_GRPS ORDER BY HIINDEX,HIPOS', {}).fetchall()
+        groupQuery = cursor.execute(
+            'SELECT * FROM TB_TWO.TB_MAP_GRPS ORDER BY HIINDEX,HIPOS', {}).fetchall()
         cursor.close()
         self.tebisMapTreeGroups = []
         id = -1
@@ -429,137 +472,79 @@ class Tebis():
                 self.tebisMapTreeGroups.append(treegroup)
             treegroup.groups.append(self.tebisGrpsById.get(group[2]))
 
-        self.tebisMapTreeGroupById = build_dict(self.tebisMapTreeGroups, key="treeId")
+        self.tebisMapTreeGroupById = build_dict(
+            self.tebisMapTreeGroups, key="treeId")
         None
         conn.close()
-        
+
+# region Config Data
+    def loadReductions(self):
+        array = np.dtype([('ID', (np.int64)), ('Reduction', (np.int64))])
+        data = self.getConfigData("RsRedCTs", array)
+        self.reductions = np.floor_divide((data)['Reduction'], 1000).tolist()
+        None
+
+    def checkIfReductionAvailable(self, reduction):
+        if (reduction in self.reductions):
+            return reduction
+        else:
+            raise TebisException('Reduction not available')
+
+    # TODO: Add Data to Object
+    def loadRsCtsNmbX(self):
+        array = np.dtype(
+            [('res', (np.int64)), ('NmbX', (np.int64))])
+        data = self.getConfigData("RsCtsNmbX", array)
+
+    # TODO: Groups to Object
+    def loadGroups(self):
+        array = np.dtype([('ID', (np.int64)), ('GrpName', np.unicode_, 100),
+                          ('GroupDesc', np.unicode_, 100), ('Group1', np.unicode_, 100)])
+        data = self.getConfigData("Grps", array)
+
+    def loadMsts(self):
+        array = np.dtype([('ID', (np.int64)), ('MSTName', np.unicode_, 100), ('UNIT', np.unicode_, 10), ('MSTDesc', np.unicode_, 255), (
+            'Val1', (np.float32)), ('Val2', (np.float32)), ('Val3', (np.float32)), ('Val4', (np.float32)), ('Val5', (np.float32))])
+        data = self.getConfigData("Msts", array)
+        self.msts = []
+        for i in range(0, len(data)):
+            self.msts.append(_TebisRMST().setValuesFromSocketInterface(data[i]))
     
+    def loadVmsts(self):
+        array = np.dtype([('ID', (np.int64)), ('MSTName', np.unicode_, 100), ('UNIT', 'U10'), (
+            'MSTDesc', np.unicode_, 255), ('Rate', (np.int)), ('Formula', np.unicode_, 255), ('refresh', (np.int))])
+        data = self.getConfigData("VMsts", array)
+        self.vmsts = []
+        for i in range(0, len(data)):
+            self.vmsts.append(_TebisVMST().setValuesFromSocketInterface(data[i]))
+
     """
     lädt die Messstellen direkt über die SocketVerbindung
     hier wird kein DB Zugriff benötigt
     Der Tree und die Gruppen kommen hier allerdings nicht zurück
     """
-    def loadMSTS(self):
+
+    def getConfigData(self, type, npArray):
         strRequest = "<tebis>\n"
-        strRequest += "<szConfigFile>" + self.config['configfile'] + "</szConfigFile>\n"
+        strRequest += "<szConfigFile>" + \
+            self.config['configfile'] + "</szConfigFile>\n"
         strRequest += "<szProcedure>GetConfig</szProcedure>\n"
-        strRequest += "<szTebObjType>Msts</szTebObjType>\n"
+        strRequest += "<szTebObjType>" + type + "</szTebObjType>\n"
         strRequest += "<tebis>"
         self.connect()
         # Send Request
         self.send_on_socket(strRequest)
         # Recieve MSTS Packet
-        MSTSRaw = self.receive_on_socket()
+        raw = self.receive_on_socket()
         self.close()
-        msts = []
-        MSTSRawSplit = str(MSTSRaw, encoding='iso-8859-1').replace("'", "").split(',')
-        dtMSTS = np.dtype([('ID', (np.int64)), ('MSTName', np.unicode_, 100), ('UNIT', np.unicode_, 10), ('MSTDesc', np.unicode_, 255), ('Val1', (np.float32)), ('Val2', (np.float32)), ('Val3', (np.float32)), ('Val4', (np.float32)), ('Val5', (np.float32))])
-        MSTS = self.__checkResultHeader(MSTSRawSplit, dtMSTS)
-        for i in range(0, len(MSTS)):
-            msts.append(_TebisVMST().setValuesFromSocketInterface(MSTS[i])) 
-        strRequest = "<tebis>\n"
-        strRequest += "<szConfigFile>" + self.config['configfile'] + "</szConfigFile>\n"
-        strRequest += "<szProcedure>GetConfig</szProcedure>\n"
-        strRequest += "<szTebObjType>VMsts</szTebObjType>\n"
-        strRequest += "<tebis>"
-        self.connect()
-        # Send Request
-        self.send_on_socket(strRequest)
-        # Recieve MSTS Packet
-        VMSTSRaw = self.receive_on_socket()
-        self.close()
-        VMSTSRawSplit = str(VMSTSRaw, encoding='iso-8859-1').replace("'", "").split(',')
-        dtVMSTS = np.dtype([('ID', (np.int64)), ('MSTName', np.unicode_, 100), ('UNIT', 'U10'), ('MSTDesc', np.unicode_, 255), ('Rate', (np.int)), ('Formula', np.unicode_, 255), ('refresh', (np.int))])
-        self.VMSTS = self.__checkResultHeader(VMSTSRawSplit, dtVMSTS)
+        f = StringIO(str(raw, encoding='iso-8859-1'))
+        reader = csv.reader(f, delimiter=',', quotechar="'")
+        rawSplit = []
+        for row in reader:
+            for item in row:
+                rawSplit.append(item.replace("'", ""))
+        return self.__checkResultHeader(rawSplit, npArray)
 
-        self.msts = msts
-        None
-
-    """
-    schnelles Lesen von Messreihen
-    ids= Array mit den Messtellen-Namen
-    nCT = Auflösung der Messwerte
-    nNmbX= Anzahl der Messpunkt rückwärts ab TimeR
-    TimeR= Unixtimestamp rechte Seite der Daten
-    """
-    def getBinData(self, ids=None, nCT=1, nNmbX=1, TimeR=time.time()):
-        start = time.time()
-        if TimeR > start:
-            dif = int(TimeR - start) / int(nCT)
-            TimeR = int(start)
-            nNmbX = int(nNmbX - dif)
-        timeR_new = int(int(int(int(TimeR) / int(nCT)) * int(nCT)))
-        dif = int(int(int(TimeR) - timeR_new) / int(nCT))
-        nNmbX = int(nNmbX - dif)
-        n = 100
-        data = None
-        types = [('timestamp', (np.int64))]
-        for id in ids:
-            mst = self.getMst(id=id)
-            types.append((str(mst.name), (np.float32)))
-        x = [ids[i:i + n] for i in range(0, len(ids), n)]
-        offset = 0
-        for ids in x:
-            arrMsts = ""
-            for id in ids:
-                arrMsts += str(id) + ', '
-            arrMsts = arrMsts[:-2]
-            if nNmbX > 0:
-                strRequest = "<tebis>\n"
-                strRequest += "<szConfigFile>" + self.config['configfile'] + "</szConfigFile>\n"
-                strRequest += "<szProcedure>LoadData</szProcedure>\n"
-                strRequest += "<arrMsts>" + arrMsts + "</arrMsts>\n"
-                strRequest += "<nNmbX>" + str(nNmbX) + "</nNmbX>\n"
-                strRequest += "<nCT>" + str(int(nCT) * 1000) + "</nCT>\n"
-                strRequest += "<nTimeR>" + str(timeR_new * 1000) + "</nTimeR>\n"
-                strRequest += "<tebis>"
-                try:
-                    self.connect()
-                    # Send Request
-                    self.send_on_socket(strRequest)
-                    # Recieve MSTS Packet
-                    MSTSRaw = self.receive_on_socket()   
-                except TebisReceiveException:
-                    self.connect()
-                    # Send Request
-                    self.send_on_socket(strRequest)
-                    # Recieve MSTS Packet
-                    MSTSRaw = self.receive_on_socket()
-                data = self.__checkBinaryResultHeader(MSTSRaw, types, data, offset)
-                offset += len(ids)
-        data['timestamp'] = data['timestamp'] / 1000
-        return data
-
-    """
-    lädt die Daten als Zeichenkette
-    Die Funktion ist wesentlich langsamer als getBinData und sollte nicht verwendet werden...
-    """
-    def getData(self, ids=None, nCT=1, nNmbX=1, TimeR=time.time()):
-        start = time.time()
-        types = [('timestamp', (np.int64))]
-        arrMsts = ""
-        for id in ids:
-            types.append((str(id), (np.float32)))
-            arrMsts += str(id) + ', '
-        arrMsts = arrMsts[:-2]
-        strRequest = "<tebis>\n"
-        strRequest += "<szConfigFile>" + self.config['configfile'] + "</szConfigFile>\n"
-        strRequest += "<szProcedure>JLoadData</szProcedure>\n"
-        strRequest += "<arrMsts>" + arrMsts + "</arrMsts>\n"
-        strRequest += "<nNmbX>" + str(nNmbX) + "</nNmbX>\n"
-        strRequest += "<nCT>" + str(nCT * 1000) + "</nCT>\n"
-        strRequest += "<nTimeR>" + str((int(TimeR) / int(nCT)) * int(nCT) * 1000) + "</nTimeR>\n"
-        strRequest += "<tebis>"
-        self.connect()
-        # Send Request
-        self.send_on_socket(strRequest)
-        # Recieve MSTS Packet
-        MSTSRaw = self.receive_on_socket()
-        self.close()
-        MSTSRawSplit = str(MSTSRaw, encoding='iso-8859-1').replace("'", "").split(',')
-        temp = self.__checkResultHeader(MSTSRawSplit, types)
-        return temp
-    
     """
     der Result-Converter für nicht binäre Daten.
     Wird verwendet zum Einlesen der Mestellen und der virtuellen Messstellen, wenn dies nicht über die OracleDB erfolgt.
@@ -605,9 +590,9 @@ class Tebis():
                 None
             y = 0
             while y < m_intNmbRows:
-                
+
                 """Differentialfunktion
-                //Bsp.: d,4,2,1	
+                //Bsp.: d,4,2,1
                 /*
                 d: 	Zeigt die Funktion an
                 4:	Stacklänge
@@ -631,30 +616,35 @@ class Tebis():
                         m_intPos += 1
                         intInc = float(result[m_intPos])
                         m_intPos += 1
-                    resultarr[resultarr.dtype.names[x]][y:(y + intStackLen)] = np.linspace(intStart, intStart + (intStackLen * intInc) - intInc, num=intStackLen)
+                    resultarr[resultarr.dtype.names[x]][y:(y + intStackLen)] = np.linspace(
+                        intStart, intStart + (intStackLen * intInc) - intInc, num=intStackLen)
                     y += intStackLen - 1
                 elif(result[m_intPos] == "i"):
                     findindex += 1
                     m_intPos += 1
                     intStackLen = int(result[m_intPos])
                     m_intPos += 1
-                    intValue = self.getValue(result[m_intPos], resultarr[resultarr.dtype.names[x]].dtype)
+                    intValue = self.getValue(
+                        result[m_intPos], resultarr[resultarr.dtype.names[x]].dtype)
                     m_intPos += 1
 
-                    resultarr[resultarr.dtype.names[x]][y:y + intStackLen] = intValue
+                    resultarr[resultarr.dtype.names[x]
+                              ][y:y + intStackLen] = intValue
                     y += intStackLen - 1
-                else:		
+                else:
                     if len(find[0]) > findindex and not np.issubdtype(resultarr[resultarr.dtype.names[x]].dtype, np.dtype(str).type):
                         pos_to_next = find[0][findindex] - 1
                         endy = y + (pos_to_next - m_intPos)
                         if endy >= m_intNmbRows:
                             endy = m_intNmbRows - 1
                             pos_to_next = m_intPos + (endy - y)
-                        resultarr[resultarr.dtype.names[x]][y:endy] = self.getValue(result[m_intPos:pos_to_next], resultarr[resultarr.dtype.names[x]].dtype)
+                        resultarr[resultarr.dtype.names[x]][y:endy] = self.getValue(
+                            result[m_intPos:pos_to_next], resultarr[resultarr.dtype.names[x]].dtype)
                         m_intPos = pos_to_next + 1
                         y = endy
                     else:
-                        resultarr[resultarr.dtype.names[x]][y] = self.getValue(result[m_intPos], resultarr[resultarr.dtype.names[x]].dtype)
+                        resultarr[resultarr.dtype.names[x]][y] = self.getValue(
+                            result[m_intPos], resultarr[resultarr.dtype.names[x]].dtype)
                         m_intPos += 1
                 y += 1
 
@@ -669,6 +659,100 @@ class Tebis():
         if(intMagic0 != -1 or intMagic1 != 463453 or intMagic2 != 756543 or intMagic3 != -1):
             return False
         return resultarr
+# endregion
+    """
+    schnelles Lesen von Messreihen
+    ids= Array mit den Messtellen-Namen
+    nCT = Auflösung der Messwerte
+    nNmbX= Anzahl der Messpunkt rückwärts ab TimeR
+    TimeR= Unixtimestamp rechte Seite der Daten
+    """
+
+    def getBinData(self, ids=None, nCT=1, nNmbX=1, TimeR=time.time()):
+        start = time.time()
+        nCT = self.checkIfReductionAvailable(nCT)
+        if TimeR > start:
+            dif = int(TimeR - start) / int(nCT)
+            TimeR = int(start)
+            nNmbX = int(nNmbX - dif)
+        timeR_new = int(int(int(int(TimeR) / int(nCT)) * int(nCT)))
+        dif = int(int(int(TimeR) - timeR_new) / int(nCT))
+        nNmbX = int(nNmbX - dif)
+        n = 100
+        data = None
+        types = [('timestamp', (np.int64))]
+        for id in ids:
+            mst = self.getMst(id=id)
+            types.append((str(mst.name), (np.float32)))
+        x = [ids[i:i + n] for i in range(0, len(ids), n)]
+        offset = 0
+        for ids in x:
+            arrMsts = ""
+            for id in ids:
+                arrMsts += str(id) + ', '
+            arrMsts = arrMsts[:-2]
+            if nNmbX > 0:
+                strRequest = "<tebis>\n"
+                strRequest += "<szConfigFile>" + \
+                    self.config['configfile'] + "</szConfigFile>\n"
+                strRequest += "<szProcedure>LoadData</szProcedure>\n"
+                strRequest += "<arrMsts>" + arrMsts + "</arrMsts>\n"
+                strRequest += "<nNmbX>" + str(nNmbX) + "</nNmbX>\n"
+                strRequest += "<nCT>" + str(int(nCT) * 1000) + "</nCT>\n"
+                strRequest += "<nTimeR>" + \
+                    str(timeR_new * 1000) + "</nTimeR>\n"
+                strRequest += "<tebis>"
+                try:
+                    self.connect()
+                    # Send Request
+                    self.send_on_socket(strRequest)
+                    # Recieve MSTS Packet
+                    MSTSRaw = self.receive_on_socket()
+                except TebisException:
+                    self.connect()
+                    # Send Request
+                    self.send_on_socket(strRequest)
+                    # Recieve MSTS Packet
+                    MSTSRaw = self.receive_on_socket()
+                data = self.__checkBinaryResultHeader(
+                    MSTSRaw, types, data, offset)
+                offset += len(ids)
+        data['timestamp'] = data['timestamp'] / 1000
+        return data
+
+    """
+    lädt die Daten als Zeichenkette
+    Die Funktion ist wesentlich langsamer als getBinData und sollte nicht verwendet werden...
+    """
+
+    def getData(self, ids=None, nCT=1, nNmbX=1, TimeR=time.time()):
+        start = time.time()
+        types = [('timestamp', (np.int64))]
+        arrMsts = ""
+        for id in ids:
+            types.append((str(id), (np.float32)))
+            arrMsts += str(id) + ', '
+        arrMsts = arrMsts[:-2]
+        strRequest = "<tebis>\n"
+        strRequest += "<szConfigFile>" + \
+            self.config['configfile'] + "</szConfigFile>\n"
+        strRequest += "<szProcedure>JLoadData</szProcedure>\n"
+        strRequest += "<arrMsts>" + arrMsts + "</arrMsts>\n"
+        strRequest += "<nNmbX>" + str(nNmbX) + "</nNmbX>\n"
+        strRequest += "<nCT>" + str(nCT * 1000) + "</nCT>\n"
+        strRequest += "<nTimeR>" + \
+            str((int(TimeR) / int(nCT)) * int(nCT) * 1000) + "</nTimeR>\n"
+        strRequest += "<tebis>"
+        self.connect()
+        # Send Request
+        self.send_on_socket(strRequest)
+        # Recieve MSTS Packet
+        MSTSRaw = self.receive_on_socket()
+        self.close()
+        MSTSRawSplit = str(
+            MSTSRaw, encoding='iso-8859-1').replace("'", "").split(',')
+        temp = self.__checkResultHeader(MSTSRawSplit, types)
+        return temp
 
 
 class _TebisMST:
@@ -681,14 +765,21 @@ class _TebisMST:
 
 
 class _TebisRMST(_TebisMST):
-    def __init__(self, elem):
-        self.mode = elem[4]
-        self.elunit = elem[5]
-        self.elFrom = elem[6]
-        self.elTo = elem[7]
-        self.phyFrom = elem[8]
-        self.phyTo = elem[9] 
-        _TebisMST.__init__(self, id=elem[0], name=elem[1], unit=elem[2], desc=elem[3])  
+    def __init__(self, elem=None):
+        if elem is not None:
+            self.mode = elem[4]
+            self.elunit = elem[5]
+            self.elFrom = elem[6]
+            self.elTo = elem[7]
+            self.phyFrom = elem[8]
+            self.phyTo = elem[9]
+            _TebisMST.__init__(
+                self, id=elem[0], name=elem[1], unit=elem[2], desc=elem[3])
+    
+    @classmethod
+    def setValuesFromSocketInterface(cls, elem):
+        _TebisMST.__init__(cls, id=elem[0], name=elem[1], unit=elem[2], desc=elem[3])
+        return cls
 
 
 class _TebisVMST(_TebisMST):
@@ -697,12 +788,12 @@ class _TebisVMST(_TebisMST):
             self.reduction = elem[4]
             self.formula = elem[5]
             self.recalc = elem[6]
-            _TebisMST.__init__(self, id=elem[0], name=elem[1], unit=elem[2], desc=elem[3]) 
-    
+            _TebisMST.__init__(
+                self, id=elem[0], name=elem[1], unit=elem[2], desc=elem[3])
+
     @classmethod
     def setValuesFromSocketInterface(cls, elem):
-        unit = elem[2]
-        _TebisMST.__init__(cls, id=elem[0], name=elem[1], desc=elem[3]) 
+        _TebisMST.__init__(cls, id=elem[0], name=elem[1], unit=elem[2], desc=elem[3])
         return cls
 
 
@@ -710,7 +801,7 @@ class _TebisMapTreeGroup:
     def __init__(self, elem):
         self.treeId = elem[0]
         self.groups = []
-        
+
 
 class _TebisGroupMember:
     def __init__(self, elem):
@@ -744,11 +835,11 @@ class _TebisTreeElement:
         self.name = elem[3]
 
     def findNodeByID(self, x):
-        if self.id is x: 
+        if self.id is x:
             return self
         for node in self.childs:
             n = node.findNodeByID(x)
-            if n: 
+            if n:
                 return n
         return None
 
@@ -757,7 +848,7 @@ class TebisOracleDBException(Exception):
     ''' raise if try to get DB-Information without a DB Connection specifeied '''
 
 
-class TebisReceiveException(Exception):
+class TebisException(Exception):
     pass
 
 
@@ -779,7 +870,7 @@ def getDataSeries_as_Json(data):
 
 class tebisTreeEncoder(JSONEncoder):
     def default(self, obj):
-        if isinstance(obj, _TebisTreeElement): 
+        if isinstance(obj, _TebisTreeElement):
             return {"id": obj.id, "text": obj.name, "nodes": obj.childs}
         if isinstance(obj, _TebisMapTreeGroup):
             return {"treeId": obj.treeId, "groups": obj.groups}
