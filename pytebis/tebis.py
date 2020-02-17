@@ -41,7 +41,6 @@ class Tebis():
             self.config['port'] = port
         # self.loadMSTS()
         self.loadTree()
-
     def getDataAsNP(self, names, start, end, rate=1):
         ids = []
         for name in names:
