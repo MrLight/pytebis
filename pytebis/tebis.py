@@ -20,20 +20,26 @@ class Tebis():
     '''Tebis Communication class
     
     '''
-    def __init__(self, configfile=None, sock=None, host=None, port=None):        
-        print('TEBIS_START***********************************************************')
-        if configfile is None:
-            self.configFile = 'd:/tebis/Anlage/Config.txt'
-        else:
-            self.configFile = configfile
-        if host is None:
-            self.host = ''
-        else:
-            self.host = host
-        if port is None:
-            self.port = 4712
-        else:
-            self.port = port
+    def __init__(self, configfile=None, sock=None, host=None, port=None, dbConn=None, configuration=None):
+        default_conf = {
+            'host': None,
+            'port': 4712,
+            'configfile': 'd:/tebis/Anlage/Config.txt',
+            'dbConn': {
+                'host': None,
+                'port': 1521,
+                'user': None,
+                'psw': None,
+                'service': 'XE'
+            }
+        }
+        self.config = selective_merge(default_conf, configuration)
+        if configfile is not None:
+            self.config['configfile'] = configfile
+        if host is not None:
+            self.config['host']= host
+        if port is not None:
+            self.config['port'] = port
         # self.loadMSTS()
         self.loadTree()
         
@@ -53,24 +59,24 @@ class Tebis():
         if nNmbX <= 0:
             nNmbX = 1
         return self.getBinData(ids=ids, nNmbX=nNmbX, TimeR=nTimeR, nCT=nCT)
-    
+
     # TODO: implement return RawData for Client based Converters like Javascript
     def getRawData(self, names, start, end, rate=1):
         return None
 
     def getDataAsJson(self, names, start, end, rate=1):
         return getDataSeries_as_Json(self.getDataAsNP(names, start, end, rate))
-    
+
     def getDataAsPD(self, names, start, end, rate=1):
         df = pd.DataFrame(self.getDataAsNP(names, start, end, rate))
         # df = df.set_index('timestamp')
         # df['timestamp'] = df.index
         return df
-    
+
     def getGroupsByTreeId(self, id):
         return self.tebisMapTreeGroupById.get(id)
         None
-        
+
     def getMst(self, id=None, name=None):
         if id is not None:
             return self.mstById.get(id)
@@ -101,7 +107,7 @@ class Tebis():
 
     def connect(self):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sock.connect((self.host, self.port))
+        self.sock.connect((self.config['host'], self.config['port']))
 
     def close(self):
         self.sock.shutdown(1)
@@ -361,15 +367,9 @@ class Tebis():
     #TODO: Events in der DB registrieren um bei Änderungen neu einzulesen
     """    
     def loadTree(self):
-        TEBIS_DB_CONN_INFO = {
-            'host': '10.15.239.202',
-            'port': 1521,
-            'user': 'TB_TWO',
-            'psw': 'vorwaerts',
-            'service': 'XE'
-        }
+        
         msts = []
-        CONN_STR = '{user}/{psw}@{host}:{port}/{service}'.format(**TEBIS_DB_CONN_INFO)
+        CONN_STR = '{user}/{psw}@{host}:{port}/{service}'.format(**self.config['dbConn'])
         conn = cx_Oracle.connect(CONN_STR, encoding='UTF-8', nencoding='UTF-8')
         cursor = conn.cursor()
         mstsQuery = cursor.execute('SELECT * FROM TB_TWO.TB_MSTS order by MSTINDEX', {}).fetchall()
@@ -438,7 +438,7 @@ class Tebis():
     """
     def loadMSTS(self):
         strRequest = "<tebis>\n"
-        strRequest += "<szConfigFile>" + self.configFile + "</szConfigFile>\n"
+        strRequest += "<szConfigFile>" + self.config['configfile']+ "</szConfigFile>\n"
         strRequest += "<szProcedure>GetConfig</szProcedure>\n"
         strRequest += "<szTebObjType>Msts</szTebObjType>\n"
         strRequest += "<tebis>"
@@ -455,7 +455,7 @@ class Tebis():
         for i in range(0, len(MSTS)):
             msts.append(_TebisVMST().setValuesFromSocketInterface(MSTS[i])) 
         strRequest = "<tebis>\n"
-        strRequest += "<szConfigFile>" + self.configFile + "</szConfigFile>\n"
+        strRequest += "<szConfigFile>" + self.config['configfile'] + "</szConfigFile>\n"
         strRequest += "<szProcedure>GetConfig</szProcedure>\n"
         strRequest += "<szTebObjType>VMsts</szTebObjType>\n"
         strRequest += "<tebis>"
@@ -507,7 +507,7 @@ class Tebis():
             arrMsts = arrMsts[:-2]
             if nNmbX > 0:
                 strRequest = "<tebis>\n"
-                strRequest += "<szConfigFile>" + self.configFile + "</szConfigFile>\n"
+                strRequest += "<szConfigFile>" + self.config['configfile'] + "</szConfigFile>\n"
                 strRequest += "<szProcedure>LoadData</szProcedure>\n"
                 strRequest += "<arrMsts>" + arrMsts + "</arrMsts>\n"
                 strRequest += "<nNmbX>" + str(nNmbX) + "</nNmbX>\n"
@@ -545,7 +545,7 @@ class Tebis():
             arrMsts += str(id) + ', '
         arrMsts = arrMsts[:-2]
         strRequest = "<tebis>\n"
-        strRequest += "<szConfigFile>" + self.configFile + "</szConfigFile>\n"
+        strRequest += "<szConfigFile>" + self.config['configfile'] + "</szConfigFile>\n"
         strRequest += "<szProcedure>JLoadData</szProcedure>\n"
         strRequest += "<arrMsts>" + arrMsts + "</arrMsts>\n"
         strRequest += "<nNmbX>" + str(nNmbX) + "</nNmbX>\n"
@@ -789,3 +789,15 @@ class tebisTreeEncoder(JSONEncoder):
         if isinstance(obj, _TebisGroupMember):
             return {"id": obj.groupId, "name": obj.mst.name, "desc": obj.mst.desc, "unit": obj.mst.unit}
         return json.JSONEncoder.default(self, obj)
+
+# config helper
+def selective_merge(base_obj, delta_obj):
+    if not isinstance(base_obj, dict):
+        return delta_obj
+    common_keys = set(base_obj).intersection(delta_obj)
+    new_keys = set(delta_obj).difference(common_keys)
+    for k in common_keys:
+        base_obj[k] = selective_merge(base_obj[k], delta_obj[k])
+    for k in new_keys:
+        base_obj[k] = delta_obj[k]
+    return base_obj
