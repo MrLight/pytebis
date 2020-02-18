@@ -74,7 +74,8 @@ class Tebis():
 
     def getDataAsPD(self, names, start, end, rate=1):
         df = pd.DataFrame(self.getDataAsNP(names, start, end, rate))
-        # df = df.set_index('timestamp')
+        df = df.set_index(pd.DatetimeIndex(pd.to_datetime(df['timestamp'], unit='s').dt.tz_localize('UTC').dt.tz_convert('Europe/Berlin').dt.tz_localize(None)))
+        df.drop(columns=['timestamp'],inplace=True)
         # df['timestamp'] = df.index
         return df
 
