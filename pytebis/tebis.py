@@ -42,7 +42,7 @@ class Tebis():
             self.config['port'] = port
         self.loadGroups()
         self.loadReductions()
-        self.loadMsts()
+        # self.loadMsts()
         if self.config['useOracle'] is True:
             self.loadTree()
         else:
@@ -159,7 +159,7 @@ class Tebis():
                         value[res] = np.NaN
                     value = np.array(value, dtype=np.float)
                 except ValueError as e:
-                    print(e)
+                    None
             else:
                 if value == '':
                     return np.NaN
@@ -339,7 +339,6 @@ class Tebis():
                                                    valcount + length] = value[0]
                             valcount += length
                 else:
-                    print(m_intFunction)
                     None
             None
         None
@@ -357,13 +356,12 @@ class Tebis():
         lastMeasuredTime = timeseries[~np.isnan(
             np.array(timeseries[timeseries.dtype.names[1]]))][-1][0]
         self.timeOffset = now - lastMeasuredTime
-        print(self.timeOffset)
         None
     """
     Versucht den aktuellen SystemOffset zu bestimmen. Die TebisDaten sind teilweise leicht verzögert
     """
 
-    def getCurrentTime(self):
+    def getCurrentTime(self):        
         if self.timeOffset is None:
             self.calcTimeOffset()
         return time.time() - self.timeOffset - 2
@@ -388,8 +386,6 @@ class Tebis():
                 mst.currenTime = timestamp
                 if len(res) < 200:
                     res += f' - {mst.currentValue:.2f}'
-        print(
-            f'{time.time()-msts[0].currenTime:.2f} {msts[0].currenTime} {res}')
         None
 
     """
