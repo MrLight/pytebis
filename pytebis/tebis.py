@@ -40,13 +40,12 @@ class Tebis():
             self.config['host'] = host
         if port is not None:
             self.config['port'] = port
-        self.loadGroups()
-        self.loadReductions()
-        # self.loadMsts()
+        self.loadReductions() # We load the reductions to double check if a valid nCT is asked
         if self.config['useOracle'] is True:
             self.loadTree()
         else:
-            self.loadMsts()
+            self.loadMstsnVMstsFromSocket()
+            self.loadGroups()
 
     def getDataAsNP(self, names, start, end, rate=1):
         ids = []
@@ -499,21 +498,31 @@ class Tebis():
                           ('GroupDesc', np.unicode_, 100), ('Group1', np.unicode_, 100)])
         data = self.getConfigData("Grps", array)
 
+    def loadMstsnVMstsFromSocket(self):
+        self.msts = []
+        msts = self.loadMsts()
+        for i in range(0, len(msts)):
+            self.msts.append(_TebisRMST().setValuesFromSocketInterface(msts[i]))
+        vmsts = self.loadVmsts()
+        for i in range(0, len(vmsts)):
+            self.msts.append(_TebisVMST().setValuesFromSocketInterface(vmsts[i]))
+        self.mstByName = build_dict(self.msts, key="name")
+        self.mstById = build_dict(self.msts, key="id")
+        
+
+
     def loadMsts(self):
         array = np.dtype([('ID', (np.int64)), ('MSTName', np.unicode_, 100), ('UNIT', np.unicode_, 10), ('MSTDesc', np.unicode_, 255), (
             'Val1', (np.float32)), ('Val2', (np.float32)), ('Val3', (np.float32)), ('Val4', (np.float32)), ('Val5', (np.float32))])
         data = self.getConfigData("Msts", array)
-        self.msts = []
-        for i in range(0, len(data)):
-            self.msts.append(_TebisRMST().setValuesFromSocketInterface(data[i]))
+        return data
+        
     
     def loadVmsts(self):
         array = np.dtype([('ID', (np.int64)), ('MSTName', np.unicode_, 100), ('UNIT', 'U10'), (
             'MSTDesc', np.unicode_, 255), ('Rate', (np.int)), ('Formula', np.unicode_, 255), ('refresh', (np.int))])
         data = self.getConfigData("VMsts", array)
-        self.vmsts = []
-        for i in range(0, len(data)):
-            self.vmsts.append(_TebisVMST().setValuesFromSocketInterface(data[i]))
+        return data
 
     """
     lädt die Messstellen direkt über die SocketVerbindung
@@ -773,10 +782,13 @@ class _TebisRMST(_TebisMST):
             _TebisMST.__init__(
                 self, id=elem[0], name=elem[1], unit=elem[2], desc=elem[3])
     
-    @classmethod
-    def setValuesFromSocketInterface(cls, elem):
-        _TebisMST.__init__(cls, id=elem[0], name=elem[1], unit=elem[2], desc=elem[3])
-        return cls
+    def setValuesFromSocketInterface(self, elem):
+        id = elem[0]
+        name = elem[1]
+        unit = testUnicodeError(elem, 2)
+        desc = testUnicodeError(elem, 3)
+        _TebisMST.__init__(self, id=id, name=name, unit=unit, desc=desc)
+        return self
 
 
 class _TebisVMST(_TebisMST):
@@ -788,10 +800,16 @@ class _TebisVMST(_TebisMST):
             _TebisMST.__init__(
                 self, id=elem[0], name=elem[1], unit=elem[2], desc=elem[3])
 
-    @classmethod
-    def setValuesFromSocketInterface(cls, elem):
-        _TebisMST.__init__(cls, id=elem[0], name=elem[1], unit=elem[2], desc=elem[3])
-        return cls
+    def setValuesFromSocketInterface(self, elem):
+        id = elem[0]
+        name = elem[1]
+        unit = testUnicodeError(elem, 2)
+        desc = testUnicodeError(elem, 3)
+        self.reduction = elem[4]
+        self.formula = elem[5]
+        self.recalc = elem[6]
+        _TebisMST.__init__(self, id=id, name=name, unit=unit, desc=desc)
+        return self
 
 
 class _TebisMapTreeGroup:
@@ -847,6 +865,15 @@ class TebisOracleDBException(Exception):
 
 class TebisException(Exception):
     pass
+
+# BUG: UnicodeDecodeError on Numpy...
+def testUnicodeError(elem, id):
+    res = ''
+    try:
+        res = elem[id]
+    except UnicodeDecodeError:
+        None
+    return res
 
 
 # SUPPORT for DB Query
