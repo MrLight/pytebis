@@ -7,7 +7,7 @@ with open("readme.md", "r") as fh:
 setup(
     name='pytebis',         # How you named your package folder (MyLib)
     packages=['pytebis'],   # Chose the same as "name"
-    version='v0.1-alpha',      # Start with a small number and increase it with every change you make
+    version='v0.1.1-alpha',      # Start with a small number and increase it with every change you make
     # Chose a license from here: https://help.github.com/articles/licensing-a-repository
     license='mit',
     # Give a short description about your library
@@ -19,7 +19,7 @@ setup(
     # Provide either the link to your github or to your website
     url='https://github.com/MrLight/pytebis',
     # I explain this later on
-    download_url='https://github.com/MrLight/pytebis/archive/v0.1-alpha.tar.gz',
+    download_url='https://github.com/MrLight/pytebis/archive/v0.1.1-alpha.tar.gz',
     # Keywords that define your package best
     keywords=['Python', 'Connector', 'TeBIS', 'Steinhaus'],
     install_requires=[

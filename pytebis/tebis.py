@@ -3,6 +3,7 @@ import socket
 import struct
 import zlib
 import numpy as np
+import numbers
 import pandas as pd
 import json
 from json import JSONEncoder
@@ -40,7 +41,7 @@ class Tebis():
             self.config['host'] = host
         if port is not None:
             self.config['port'] = port
-        self.loadReductions() # We load the reductions to double check if a valid nCT is asked
+        self.loadReductions()  # We load the reductions to double check if a valid nCT is asked
         if self.config['useOracle'] is True:
             self.loadTree()
         else:
@@ -49,8 +50,15 @@ class Tebis():
 
     def getDataAsNP(self, names, start, end, rate=1):
         ids = []
+        # find Mst with id as a number, id as MST name a str, id
         for name in names:
-            id = self.getMst(name=name).id
+            id = None
+            if (isinstance(name, numbers.Number)):
+                id = self.getMst(id=name).id
+            elif(isinstance(name, str)):
+                id = self.getMst(name=name).id
+            elif(isinstance(name, _TebisMST)):
+                id = name.id
             if id is not None:
                 ids.append(id)
         nCT = rate
@@ -74,7 +82,7 @@ class Tebis():
     def getDataAsPD(self, names, start, end, rate=1):
         df = pd.DataFrame(self.getDataAsNP(names, start, end, rate))
         df = df.set_index(pd.DatetimeIndex(pd.to_datetime(df['timestamp'], unit='s').dt.tz_localize('UTC').dt.tz_convert('Europe/Berlin').dt.tz_localize(None)))
-        df.drop(columns=['timestamp'],inplace=True)
+        df.drop(columns=['timestamp'], inplace=True)
         # df['timestamp'] = df.index
         return df
 

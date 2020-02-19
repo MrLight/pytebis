@@ -4,6 +4,8 @@ pytebis is a connector for interacting with a TeBIS Server.
 
 The connector can return structured data in a defined timespan with defined measuring points.
 There are function to get the data as structured NumPy Array, Pandas or as json.
+For further interaction it is possible to load the measuring points, the groups and the tree.
+Alarms are currently not supported.
 
 ## Install the package
 
@@ -26,7 +28,7 @@ The advanced Configuration is needed to additional load the groups and tree conf
 
 ```python
 configuration = {
-    'host': '192.168.1.1', # The tebis host IP Adr
+    'host': '192.168.1.10', # The tebis host IP Adr
     'configfile': 'd:/tebis/Anlage/Config.txt' # Tebis config file loaction on the server -> ask your admin
 }
 teb = tebis.Tebis(configuration=configuration)
@@ -36,15 +38,15 @@ teb = tebis.Tebis(configuration=configuration)
 
 ```python
 configuration = {
-            'host': '192.168.1.1', # The tebis host IP Adr
+            'host': '192.168.1.10', # The tebis host IP Adr
             'port': 4712, # Tebis Port [4712]
             'configfile': 'd:/tebis/Anlage/Config.txt', # Tebis config file location on the server -> ask your admin
             'useOracle': None,  # Optional: can be True or False - False to Switch off the DB usage
             'OracleDbConn': { # The Oracle Connection
-                'host': '192.168.1.1', # IP Adr
+                'host': '192.168.1.10', # IP Adr
                 'port': 1521, # Port [1521]
-                'user': None, # user
-                'psw': None, #pwd
+                'user': None, # Oracle username
+                'psw': None, #Oracle pwd
                 'service': 'XE'
             }
         }
@@ -58,12 +60,12 @@ Parameters:
 
 `result = teb.getDataAsJson(names, start, end, rate=1)`
 
-- names = Array of all mst-names to read
-- start = Unix-Timestamp where to start the read
-- end = Unix-Timestamp where to end the read
+- names = Array of all mst-names to read. You can pass a array of IDs, names or TebisMst-Objects (even mixed). 
+- start = Unix-Timestamp where to start the read (must be in the same timezone as the server is)
+- end = Unix-Timestamp where to end the read (must be in the same timezone as the server is)
 - rate = What reduction should be used for the read
 
-The Data which is returned by the TeBIS-Server is vectorized into a structured numpy array. Which is working super fast and totally comparable with the performance of the TeBIS A Client. You can use different functions to get the data in std. Python formats for further analysis.
+The Data which is returned by the TeBIS-Server is vectorized into a structured numpy array. Which is working super fast and is totally comparable with the performance of the TeBIS A Client. You can use different functions to get the data in std. Python formats for further analysis.
 
 #### as Numpy structured array
 
