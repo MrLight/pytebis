@@ -1,18 +1,25 @@
 from distutils.core import setup
+
+# read the contents of your README file
+with open("readme.md", "r") as fh:
+    long_description = fh.read()
+
 setup(
     name='pytebis',         # How you named your package folder (MyLib)
     packages=['pytebis'],   # Chose the same as "name"
-    version='0.1',      # Start with a small number and increase it with every change you make
+    version='v0.1-alpha',      # Start with a small number and increase it with every change you make
     # Chose a license from here: https://help.github.com/articles/licensing-a-repository
-    license='MIT',
+    license='mit',
     # Give a short description about your library
     description='Python Connector for TeBIS from Steinhaus',
+    long_description_content_type='text/markdown',
+    long_description=long_description,
     author='MrLight',                   # Type in your name
-    # author_email = 'your.email@domain.com',      # Type in your E-Mail
+    author_email='mrlight1@gmx.de',      # Type in your E-Mail
     # Provide either the link to your github or to your website
     url='https://github.com/MrLight/pytebis',
     # I explain this later on
-    download_url='https://github.com/MrLight/pytebis/archive/master.zip',
+    download_url='https://github.com/MrLight/pytebis/archive/v0.1-alpha.tar.gz',
     # Keywords that define your package best
     keywords=['Python', 'Connector', 'TeBIS', 'Steinhaus'],
     install_requires=[

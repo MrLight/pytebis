@@ -12,6 +12,7 @@ pip install pytebis
 ```
 
 ## Usage
+
 ### Import the package
 
 ```python
@@ -50,11 +51,13 @@ configuration = {
 teb = tebis.Tebis(configuration=configuration)
 ```
 
-### read Data from TeBIS:
+### read Data from TeBIS
+
 There are different functions to read data from the TeBIS Server. All functions have the some parameters. Only the return are specific to the function.
 Parameters:
 
 `result = teb.getDataAsJson(names, start, end, rate=1)`
+
 - names = Array of all mst-names to read
 - start = Unix-Timestamp where to start the read
 - end = Unix-Timestamp where to end the read
@@ -62,23 +65,25 @@ Parameters:
 
 The Data which is returned by the TeBIS-Server is vectorized into a structured numpy array. Which is working super fast and totally comparable with the performance of the TeBIS A Client. You can use different functions to get the data in std. Python formats for further analysis.
 
-#### as Numpy structured array:
+#### as Numpy structured array
+
 ```python
 resNP = teb.getDataAsNP(['My_mst_1','My_mst_2'], 1581324153, 1581325153, 10)
-    
 ```
+
 A structured Numpy Array is returned. There is a Column per mst-name, additional a column with the timestamp is added with index 0.
 You can directly access the elemnets e.g. by indexing them by name `resNP["timestamp"]`
 
-#### as Pandas:
+#### as Pandas
+
 ```python
 df = teb.getDataAsPD(['My_mst_1','My_mst_2'], 1581324153, 1581325153, 10)
-    
 ```
+
 The Pandas DataFrame will not return a column with the timestamp. But a DateTimeIndex. So you can directly use this for TimeSeries Operations,
 
-#### as Json:
+#### as Json
+
 ```python
 resJSON = teb.getDataAsJson(['My_mst_1','My_mst_2'], 1581324153, 1581325153, 10)
-    
 ```
