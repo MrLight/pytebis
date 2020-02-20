@@ -60,7 +60,7 @@ Parameters:
 
 `result = teb.getDataAsJson(names, start, end, rate=1)`
 
-- names = Array of all mst-names to read. You can pass a array of IDs, names or TebisMst-Objects (even mixed). 
+- names = Array of all mst-names to read. You can pass a array of IDs, names, TebisMst-Objects or Group-Objects (even mixed).
 - start = Unix-Timestamp where to start the read (must be in the same timezone as the server is)
 - end = Unix-Timestamp where to end the read (must be in the same timezone as the server is)
 - rate = What reduction should be used for the read
@@ -74,7 +74,7 @@ resNP = teb.getDataAsNP(['My_mst_1','My_mst_2'], 1581324153, 1581325153, 10)
 ```
 
 A structured Numpy Array is returned. There is a Column per mst-name, additional a column with the timestamp is added with index 0.
-You can directly access the elemnets e.g. by indexing them by name `resNP["timestamp"]`
+You can directly access the elements e.g. by indexing them by name `resNP["timestamp"]`
 
 #### as Pandas
 
@@ -82,10 +82,19 @@ You can directly access the elemnets e.g. by indexing them by name `resNP["times
 df = teb.getDataAsPD(['My_mst_1','My_mst_2'], 1581324153, 1581325153, 10)
 ```
 
-The Pandas DataFrame will not return a column with the timestamp. But a DateTimeIndex. So you can directly use this for TimeSeries Operations,
+The Pandas DataFrame will not return a column with the timestamp. But a DateTimeIndex. So you can directly use this for TimeSeries Operations. The creation of the Pandas Dataframe is a bit slower than the generic NumPy function, as the DataFrame and the DateTimeIndex is generated afterwards.
 
 #### as Json
 
 ```python
 resJSON = teb.getDataAsJson(['My_mst_1','My_mst_2'], 1581324153, 1581325153, 10)
 ```
+
+### Working with measuring points, groups and the tree
+
+The measuring points and the virtual measuring points are loaded once at startup. This is always possible so you don't need to specify a db Connection.
+
+If you want to load the Groups, Group Members and the Tree as it is configured in the TeBIS A client you must have a working db Connection.
+
+If you have a long running service it is a good idea to reload the information in a regular interval. (e.g. all 10min)
+
