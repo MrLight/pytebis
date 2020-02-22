@@ -11,6 +11,8 @@ import simplejson
 from io import StringIO
 import csv
 from pytebis.lazyloader import LazyLoader
+import logging
+logging.getLogger('pytebis').addHandler(logging.NullHandler())
 
 
 class Tebis():
@@ -30,24 +32,26 @@ class Tebis():
                 'user': None,  # db user
                 'psw': None,  # db pwd
                 'service': 'XE'  # Oracle service name
+            },
+            'liveValues': {
+                'recalcTimeOffsetEvery': 600,  # When using LiveValues recalc TimeOffset every x Seconds
+                'offsetMstId': 100025,  # This is the Mst which is used to calculate the last available Timestamp. Use a always available mst.
             }
         }
         self.config = selective_merge(default_conf, configuration)
+        # Setup some basics in the config dict
         if self.config['OracleDbConn']['host'] is not None and (self.config['useOracle'] is True or self.config['useOracle'] is None):
             if self.config['useOracle'] is None:
                 self.config['useOracle'] = True
+        
         if configfile is not None:
             self.config['configfile'] = configfile
         if host is not None:
             self.config['host'] = host
         if port is not None:
             self.config['port'] = port
-        self.loadReductions()  # We load the reductions to double check if a valid nCT is asked
-        if self.config['useOracle'] is True:
-            self.loadTree()
-        else:
-            self.loadMstsnVMstsFromSocket()
-            self.loadGroupsFromSocket()
+        self.refreshMsts()
+        self.setupLiveValues()
 
     def getDataAsNP(self, names, start, end, rate=1):
         ids = []
@@ -127,6 +131,19 @@ class Tebis():
     def getGroupsByTreeIdAsJson(self, id):
         return json.dumps(self.getGroupsByTreeId(int(id)), cls=tebisTreeEncoder, separators=(',', ':'))
 
+    def refreshMsts(self):
+        self.loadReductions()  # We load the reductions to double check if a valid nCT is asked
+        if self.config['useOracle'] is True:
+            self.loadTree()
+        else:
+            self.loadMstsnVMstsFromSocket()
+            self.loadGroupsFromSocket()
+
+    def setupLiveValues(self):
+        self.config['liveValues']['lastTimeOffsetCalculation'] = None
+        self.config['liveValues']['timeOffset'] = None
+        self.getCurrentTime()
+
     """
     berechnet den Offset anhand einer Messstelle idealerweise ist diese Messtelle nie nan
     Es wird ein größerer Zeitraum angefragt und die letzte Stelle die nicht nan ist als aktuelle Systemzeit angenommen
@@ -135,40 +152,44 @@ class Tebis():
     def calcTimeOffset(self):
         now = time.time()
         timeseries = self.__getBinData(
-            ids=[100025], nNmbX=60, TimeR=int(now), nCT=1)
+            ids=[self.config['liveValues']['offsetMstId']], nNmbX=60, TimeR=int(now), nCT=1)
         lastMeasuredTime = timeseries[~np.isnan(
             np.array(timeseries[timeseries.dtype.names[1]]))][-1][0]
-        self.timeOffset = now - lastMeasuredTime
+        now = int(time.time())
+        self.config['liveValues']['timeOffset'] = now - (lastMeasuredTime - 1)
+        self.config['liveValues']['lastTimeOffsetCalculation'] = now
         None
     """
     Versucht den aktuellen SystemOffset zu bestimmen. Die TebisDaten sind teilweise leicht verzögert
     """
 
-    def getCurrentTime(self):        
-        if self.timeOffset is None:
+    def getCurrentTime(self):
+        if self.config['liveValues']['timeOffset'] is None or self.config['liveValues']['lastTimeOffsetCalculation'] < (time.time() - self.config['liveValues']['recalcTimeOffsetEvery']):
             self.calcTimeOffset()
-        return time.time() - self.timeOffset - 2
+        return time.time() - int(self.config['liveValues']['timeOffset'])
 
     """
     Gitb den aktuellen Messwert der in msts genannten messtellen zurück
     msts= Array mit Messtellen
     """
 
-    def readCurrentValue(self, msts):
+    def readCurrentValue(self, msts, howmany = 1):
         ids = []
         for mst in msts:
             if (mst.name is not None):
                 ids.append(mst.id)
+        test = time.time()
         timeseries = self.__getBinData(
-            ids=ids, nNmbX=1, TimeR=int(self.getCurrentTime()), nCT=1)
+            ids=ids, nNmbX=howmany, TimeR=int(self.getCurrentTime()), nCT=1)
         res = ''
-        timestamp = timeseries['timestamp'][-1]
+        timestamp = timeseries['timestamp'][(howmany*-1):]
         for mst in msts:
             if mst.name is not None:
+                mst.currentValues = None
+                if howmany > 1:
+                    mst.currentValues = timeseries[mst.name][(howmany*-1):]
                 mst.currentValue = timeseries[mst.name][-1]
                 mst.currenTime = timestamp
-                if len(res) < 200:
-                    res += f' - {mst.currentValue:.2f}'
         None
 
 # region Config Data
