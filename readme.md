@@ -55,7 +55,7 @@ teb = tebis.Tebis(configuration=configuration)
 
 ### read Data from TeBIS
 
-There are different functions to read data from the TeBIS Server. All functions have the some parameters. Only the return are specific to the function.
+There are different functions to read data from the TeBIS Server. All functions have the some parameters. Only the return is specific to the function.
 Parameters:
 
 `result = teb.getDataAsJson(names, start, end, rate=1)`
@@ -90,6 +90,28 @@ The Pandas DataFrame will not return a column with the timestamp. But a DateTime
 resJSON = teb.getDataAsJson(['My_mst_1','My_mst_2'], 1581324153, 1581325153, 10)
 ```
 
+#### Example
+
+```python
+import time
+import matplotlib.pyplot as plt
+from pytebis import tebis
+
+def example():
+    configuration = {
+        'host': '192.168.1.10',  # The tebis host IP Adr
+        'configfile': 'd:/tebis/Anlage/Config.txt' # Tebis config file loaction on the server -> ask your admin
+    }
+    teb = tebis.Tebis(configuration=configuration)
+    df = teb.getDataAsPD([492, 123], time.time() - 3600, time.time(), 10)
+    df.plot()
+    plt.show()
+
+if __name__ == "__main__":
+    example()
+    pass
+```
+
 ### Working with measuring points, groups and the tree
 
 The measuring points and the virtual measuring points are loaded once at startup. This is always possible so you don't need to specify a db Connection.
@@ -97,6 +119,9 @@ The measuring points and the virtual measuring points are loaded once at startup
 If you want to load the Groups, Group Members and the Tree as it is configured in the TeBIS A client you must have a working db Connection.
 
 If you have a long running service it is a good idea to reload the information in a regular interval. (e.g. all 10min)
+
+Just call ```teb.refreshMsts()``` to reload the data.
+
 
 ### Logging
 
