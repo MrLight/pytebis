@@ -92,6 +92,8 @@ resJSON = teb.getDataAsJson(['My_mst_1','My_mst_2'], 1581324153, 1581325153, 10)
 
 #### Example
 
+This will show a plot containing the last hour of data of the point-ids 1 and 2. The reduction is 10 seconds.
+
 ```python
 import time
 import matplotlib.pyplot as plt
@@ -103,7 +105,7 @@ def example():
         'configfile': 'd:/tebis/Anlage/Config.txt' # Tebis config file loaction on the server -> ask your admin
     }
     teb = tebis.Tebis(configuration=configuration)
-    df = teb.getDataAsPD([492, 123], time.time() - 3600, time.time(), 10)
+    df = teb.getDataAsPD([1,2], time.time() - 3600, time.time(), 10)  # adjust which points you want to load pass id, name, mst- or group-Object
     df.plot()
     plt.show()
 
