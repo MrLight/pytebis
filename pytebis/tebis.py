@@ -52,22 +52,23 @@ class Tebis():
             self.config['port'] = port
         self.refreshMsts()
         self.setupLiveValues()
+        
 
     def getDataAsNP(self, names, start, end, rate=1):
         ids = []
         # find Mst with id as a number, id as MST name a str, id
         for name in names:
             id = None
-            if (isinstance(name, numbers.Number)):
+            if isinstance(name, numbers.Number):
                 id = self.getMst(id=name).id
-            elif(isinstance(name, str)):
+            elif isinstance(name, str):
                 id = self.getMst(name=name).id
-            elif(isinstance(name, TebisMST)):
+            elif isinstance(name, TebisMST):
                 id = name.id
-            elif(isinstance(name, TebisGroupElement)):
+            elif isinstance(name, TebisGroupElement):
                 for member in name.members:
                     ids.append(member.mst.id)
-            elif(isinstance(name, TebisGroupMember)):
+            elif isinstance(name, TebisGroupMember):
                 id = name.mst.id
             if id is not None:
                 ids.append(id)
@@ -176,7 +177,7 @@ class Tebis():
     def readCurrentValue(self, msts, howmany = 1):
         ids = []
         for mst in msts:
-            if (mst.name is not None):
+            if mst.name is not None:
                 ids.append(mst.id)
         test = time.time()
         timeseries = self.__getBinData(
@@ -200,7 +201,7 @@ class Tebis():
         None
 
     def checkIfReductionAvailable(self, reduction):
-        if (reduction in self.reductions):
+        if reduction in self.reductions:
             return reduction
         else:
             raise TebisException('Reduction not available')
@@ -284,7 +285,7 @@ class Tebis():
         self.tebisMapTreeGroups = []
         id = -1
         for group in groupQuery:
-            if (id != group[0]):
+            if id != group[0]:
                 id = group[0]
                 treegroup = TebisMapTreeGroup(group)
                 self.tebisMapTreeGroups.append(treegroup)
@@ -321,13 +322,13 @@ class Tebis():
             self.msts.append(TebisVMST().setValuesFromSocketInterface(vmsts[i]))
         self.mstByName = build_dict(self.msts, key="name")
         self.mstById = build_dict(self.msts, key="id")
-        
+
     def loadMstsFromSocket(self):
         array = np.dtype([('ID', (np.int64)), ('MSTName', np.unicode_, 100), ('UNIT', np.unicode_, 10), ('MSTDesc', np.unicode_, 255), (
             'Val1', (np.float32)), ('Val2', (np.float32)), ('Val3', (np.float32)), ('Val4', (np.float32)), ('Val5', (np.float32))])
         data = self.getConfigData("Msts", array)
         return data
-        
+
     def loadVmstsFromSocket(self):
         array = np.dtype([('ID', (np.int64)), ('MSTName', np.unicode_, 100), ('UNIT', 'U10'), (
             'MSTDesc', np.unicode_, 255), ('Rate', (np.int)), ('Formula', np.unicode_, 255), ('refresh', (np.int))])
@@ -388,11 +389,11 @@ class Tebis():
         m_intPos += 1
         intMagic3 = int(result[m_intPos])
         m_intPos += 1
-        if(intMagic0 != -1 or intMagic1 != 463453 or intMagic2 != 756543 or intMagic3 != -1):
+        if (intMagic0 != -1 or intMagic1 != 463453 or intMagic2 != 756543 or intMagic3 != -1):
             return False
         intVersion = int(result[m_intPos])
         m_intPos += 1
-        if(intVersion != 3):
+        if intVersion != 3:
             return False
         m_intNmbCols = int(result[m_intPos])
         m_intPos += 1
@@ -408,7 +409,7 @@ class Tebis():
             m_intPos += 1
             intColHasName = int(result[m_intPos])
             m_intPos += 1
-            if(intColHasName):
+            if intColHasName:
                 None
             y = 0
             while y < m_intNmbRows:
@@ -423,7 +424,7 @@ class Tebis():
 
                 Daraus ergibt sich: [2,3,4,5]
                 """
-                if(result[m_intPos] == "d"):
+                if result[m_intPos] == "d":
                     findindex += 1
                     m_intPos += 1
                     intStackLen = np.int64(result[m_intPos])
@@ -441,7 +442,7 @@ class Tebis():
                     resultarr[resultarr.dtype.names[x]][y:(y + intStackLen)] = np.linspace(
                         intStart, intStart + (intStackLen * intInc) - intInc, num=intStackLen)
                     y += intStackLen - 1
-                elif(result[m_intPos] == "i"):
+                elif result[m_intPos] == "i":
                     findindex += 1
                     m_intPos += 1
                     intStackLen = int(result[m_intPos])
@@ -520,7 +521,7 @@ class Tebis():
         intFooter = struct.unpack('>iiii', raw[-16:])
         if(intHeader[0] != -1 or intHeader[1] != 463453 or intHeader[2] != 756543 or intHeader[3] != -1 or intFooter[0] != -1 or intFooter[1] != 463453 or intFooter[2] != 756543 or intFooter[3] != -1):
             return False
-        if(intHeader[4] != 2):
+        if intHeader[4] != 2:
             return False
         m_intNmbCols = intHeader[5]
         m_intNmbRows = intHeader[6]
@@ -571,7 +572,7 @@ class Tebis():
             # Die Funktion 111 = Ein Wert in allen Zeilen |
             m_intFunction = struct.unpack('>B', data[m_intPos:m_intPos + 1])[0]
             m_intPos += 1
-            if (intColType == 301):  # TimeStamp Col
+            if intColType == 301:  # TimeStamp Col
                 for segment in segments:
                     y = segment[0]
                     m_intLength = segment[1]
@@ -583,8 +584,8 @@ class Tebis():
                         resultarr[column_name][y:y + m_intLength] = np.linspace(value[0], value[0] + (
                             m_intLength * m_intStepSize) - m_intStepSize, num=m_intLength)
                     m_intPos += 16
-            elif (intColType == 8):  # Wert Col
-                if (m_intFunction == 109):  # ?  alle Werte nan?
+            elif intColType == 8:  # Wert Col
+                if m_intFunction == 109:  # ?  alle Werte nan?
                     for segment in segments:
                         y = segment[0]
                         m_intLength = segment[1]
@@ -592,7 +593,7 @@ class Tebis():
                             resultarr[column_name][y:y + m_intLength] = np.nan
                         else:
                             None
-                elif (m_intFunction == 110):  # alle Werte sind unterschiedlich
+                elif m_intFunction == 110:  # alle Werte sind unterschiedlich
                     for segment in segments:
                         y = segment[0]
                         m_intLength = segment[1]
@@ -600,7 +601,7 @@ class Tebis():
                             data, m_intPos, m_intByteCount, arraycount=m_intLength)
                         resultarr[column_name][y:y + m_intLength] = values[0]
                         m_intPos = int(values[1])
-                elif (m_intFunction == 111):  # Alle Werte gleich
+                elif m_intFunction == 111:  # Alle Werte gleich
                     value = self.__getValueFromBin(
                         data, m_intPos, m_intByteCount)
                     m_intPos = int(value[1])
@@ -613,7 +614,7 @@ class Tebis():
                         resultarr[column_name][y:y + m_intLength] = np.linspace(
                             value[0], value[0] + (m_intLength * step[0]) - step[0], num=m_intLength)
                     None
-                elif (m_intFunction == 112):  # Gruppen gleicher Werte
+                elif m_intFunction == 112:  # Gruppen gleicher Werte
                     m_intGroupCount = 0
                     for segment in segments:
                         y = segment[0]
@@ -645,35 +646,35 @@ class Tebis():
 
     def __getValueFromBin(self, data, pos, bytecount, type=None):
         result = [0.0, pos]
-        if (bytecount == 8):
+        if bytecount == 8:
             result[0] = struct.unpack('>d', data[pos:pos + bytecount])[0]
             result[1] += bytecount
-        elif (bytecount == 4):
+        elif bytecount == 4:
             result[0] = struct.unpack('>i', data[pos:pos + (bytecount)])[0]
             result[1] += bytecount
-        elif (bytecount == 2):
+        elif bytecount == 2:
             result[0] = struct.unpack('>h', data[pos:pos + (bytecount)])[0]
             result[1] += bytecount
-        elif (bytecount == 1):
+        elif bytecount == 1:
             result[0] = struct.unpack('>b', data[pos:pos + (bytecount)])[0]
             result[1] += bytecount
         return result
 
     def __getValueFromBinArray(self, data, pos, bytecount, arraycount=1, type=None):
         result = [0.0, pos]
-        if (bytecount == 8):
+        if bytecount == 8:
             result[0] = struct.unpack(
                 f'>{arraycount}d', data[pos:pos + (bytecount * arraycount)])
             result[1] += bytecount * arraycount
-        elif (bytecount == 4):
+        elif bytecount == 4:
             result[0] = struct.unpack(
                 f'>{arraycount}i', data[pos:pos + (bytecount * arraycount)])
             result[1] += bytecount * arraycount
-        elif (bytecount == 2):
+        elif bytecount == 2:
             result[0] = struct.unpack(
                 f'>{arraycount}h', data[pos:pos + (bytecount * arraycount)])
             result[1] += bytecount * arraycount
-        elif (bytecount == 1):
+        elif bytecount == 1:
             result[0] = struct.unpack(
                 f'>{arraycount}b', data[pos:pos + (bytecount * arraycount)])
             result[1] += bytecount * arraycount
@@ -688,6 +689,7 @@ class Tebis():
     def socketConnect(self):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.connect((self.config['host'], self.config['port']))
+        logging.debug(f"Connect to Tebis-Socket {self.config['host']}:{self.config['port']}")
 
     def socketClose(self):
         self.sock.shutdown(1)

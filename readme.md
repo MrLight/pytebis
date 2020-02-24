@@ -98,3 +98,6 @@ If you want to load the Groups, Group Members and the Tree as it is configured i
 
 If you have a long running service it is a good idea to reload the information in a regular interval. (e.g. all 10min)
 
+### Logging
+
+The package is implementing a logger using the std. logging framework of Python. The loggername is: ```pytebis```. There is no handler configured. To setup a specific log-level for the package use a config like this after ```logging.basicConfig()``` e.g. ```logging.getLogger('pytebis').setLevel(logging.INFO)``` 
