@@ -434,10 +434,10 @@ class Tebis():
                         m_intPos += 1
                         intInc = np.int64(result[m_intPos])
                         m_intPos += 1
-                    elif np.issubdtype(resultarr[resultarr.dtype.names[x]].dtype, float):
-                        intStart = float(result[m_intPos])
+                    elif np.issubdtype(resultarr[resultarr.dtype.names[x]].dtype, np.floating):
+                        intStart = np.float(result[m_intPos])
                         m_intPos += 1
-                        intInc = float(result[m_intPos])
+                        intInc = np.float(result[m_intPos])
                         m_intPos += 1
                     resultarr[resultarr.dtype.names[x]][y:(y + intStackLen)] = np.linspace(
                         intStart, intStart + (intStackLen * intInc) - intInc, num=intStackLen)
