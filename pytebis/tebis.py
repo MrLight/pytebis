@@ -38,6 +38,7 @@ class Tebis():
                 'offsetMstId': 100025,  # This is the Mst which is used to calculate the last available Timestamp. Use a always available mst.
             }
         }
+        self.socketReconnectTimer = 0
         self.config = selective_merge(default_conf, configuration)
         # Setup some basics in the config dict
         if self.config['OracleDbConn']['host'] is not None and (self.config['useOracle'] is True or self.config['useOracle'] is None):
@@ -685,15 +686,26 @@ class Tebis():
 # endregion
 
 # region Socket handling
-
+    
     def socketConnect(self):
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sock.connect((self.config['host'], self.config['port']))
-        logging.debug(f"Connect to Tebis-Socket {self.config['host']}:{self.config['port']}")
+        try:
+            self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.sock.connect((self.config['host'], self.config['port']))
+            logging.debug(f"Connect to Tebis-Socket {self.config['host']}:{self.config['port']}")
+            self.socketReconnectTimer = 0
+        except:
+            time.sleep(1)
+            self.socketClose()
+            self.socketReconnectTimer += 1
+            while self.socketReconnectTimer <10:
+                self.socketConnect()
 
     def socketClose(self):
-        self.sock.shutdown(1)
-        self.sock.close()
+        try:
+            self.sock.shutdown(1)
+            self.sock.close()
+        except:
+            None
 
     def sendOnSocket(self, msg):
         totalsent = 0
@@ -773,7 +785,11 @@ class Tebis():
                     self.sendOnSocket(strRequest)
                     # Recieve MSTS Packet
                     MSTSRaw = self.receiveOnSocket()
-                except TebisException:
+                except:
+                    try:
+                        self.socketClose()
+                    except:
+                        None
                     self.socketConnect()
                     # Send Request
                     self.sendOnSocket(strRequest)

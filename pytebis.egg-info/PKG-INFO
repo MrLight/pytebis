@@ -1,0 +1,20 @@
+Metadata-Version: 1.1
+Name: pytebis
+Version: 0.1.3a0
+Summary: Python Connector for TeBIS from Steinhaus
+Home-page: https://github.com/MrLight/pytebis
+Author: MrLight
+Author-email: mrlight1@gmx.de
+License: mit
+Download-URL: https://github.com/MrLight/pytebis/archive/v0.1.1-alpha.tar.gz
+Description: UNKNOWN
+Keywords: Python,Connector,TeBIS,Steinhaus
+Platform: UNKNOWN
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Software Development :: Build Tools
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
