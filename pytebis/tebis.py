@@ -6,12 +6,14 @@ import numpy as np
 import numbers
 import pandas as pd
 import json
+import datetime
 from json import JSONEncoder
 import simplejson
 from io import StringIO
 import csv
 from pytebis.lazyloader import LazyLoader
 import logging
+from dateutil.parser import parse
 logging.getLogger('pytebis').addHandler(logging.NullHandler())
 
 
@@ -34,11 +36,11 @@ class Tebis():
                 'service': 'XE'  # Oracle service name
             },
             'liveValues': {
+                'enable': False,    # Use LiveValue Feature - This is used to compensate possible timedrifts between the Tebis Server and the Client.
                 'recalcTimeOffsetEvery': 600,  # When using LiveValues recalc TimeOffset every x Seconds
                 'offsetMstId': 100025,  # This is the Mst which is used to calculate the last available Timestamp. Use a always available mst.
             }
         }
-        self.socketReconnectTimer = 0
         self.config = selective_merge(default_conf, configuration)
         # Setup some basics in the config dict
         if self.config['OracleDbConn']['host'] is not None and (self.config['useOracle'] is True or self.config['useOracle'] is None):
@@ -52,7 +54,8 @@ class Tebis():
         if port is not None:
             self.config['port'] = port
         self.refreshMsts()
-        self.setupLiveValues()
+        if self.config['liveValues']['enable'] == True:
+            self.setupLiveValues()
         
 
     def getDataAsNP(self, names, start, end, rate=1):
@@ -73,16 +76,26 @@ class Tebis():
                 id = name.mst.id
             if id is not None:
                 ids.append(id)
-        nCT = rate
-        nTimeR = end
+        if isinstance(start, datetime.datetime):
+            start = start.timestamp()
+        elif isinstance(start, str):
+            start = datetime.datetime.strptime(start, '%Y-%m-%d %H:%M:%S.%f').timestamp()
+        if isinstance(end, datetime.datetime):
+            end = end.timestamp()
+        elif isinstance(end, str):
+            end = datetime.datetime.strptime(end, '%Y-%m-%d %H:%M:%S.%f').timestamp()
+
+        nCT = rate*1000.0
+        nTimeR = end*1000.0
         nTimeR = (int(float(nTimeR)) / int(nCT)) * int(nCT)
 
-        nTimeL = start
+        nTimeL = start*1000.0
         nTimeL = (int(float(nTimeL)) / int(nCT)) * int(nCT)
         nNmbX = int(nTimeR - nTimeL) / int(nCT)
         if nNmbX <= 0:
             nNmbX = 1
-        return self.__getBinData(ids=ids, nNmbX=nNmbX, TimeR=nTimeR, nCT=nCT)
+        
+        return self.__getBinData(ids=ids, nNmbX=nNmbX, TimeR=nTimeR, nCT=nCT/1000.0)
 
     # TODO: implement return RawData for Client based Converters like Javascript
     def getRawData(self, names, start, end, rate=1):
@@ -91,10 +104,24 @@ class Tebis():
     def getDataAsJson(self, names, start, end, rate=1):
         return getDataSeries_as_Json(self.getDataAsNP(names, start, end, rate))
 
-    def getDataAsPD(self, names, start, end, rate=1):
-        df = pd.DataFrame(self.getDataAsNP(names, start, end, rate))
-        df = df.set_index(pd.DatetimeIndex(pd.to_datetime(df['timestamp'], unit='s').dt.tz_localize('UTC').dt.tz_convert('Europe/Berlin').dt.tz_localize(None)))
-        df.drop(columns=['timestamp'], inplace=True)
+
+
+    def getDataAsPD(self, names, start, end = None, rate=1):
+        if all(isinstance(elem, list) for elem in start):
+            df = None
+            for tuple in start:
+                if df is None:
+                    df = pd.DataFrame(self.getDataAsNP(names, tuple[0], tuple[1], rate))            
+                else:
+                    df = df.append(pd.DataFrame(self.getDataAsNP(names, tuple[0], tuple[1], rate)))
+            df = df.set_index(pd.DatetimeIndex(pd.to_datetime(df['timestamp'], unit='ms').dt.tz_localize('UTC').dt.tz_convert('Europe/Berlin').dt.tz_localize(None)))
+            df.drop(columns=['timestamp'], inplace=True)
+            # df['timestamp'] = df.index
+            df.sort_index(inplace=True)
+        elif end is not None:
+            df = pd.DataFrame(self.getDataAsNP(names, start, end, rate))
+            df = df.set_index(pd.DatetimeIndex(pd.to_datetime(df['timestamp'], unit='ms').dt.tz_localize('UTC').dt.tz_convert('Europe/Berlin').dt.tz_localize(None)))
+            df.drop(columns=['timestamp'], inplace=True)
         # df['timestamp'] = df.index
         return df
 
@@ -154,7 +181,7 @@ class Tebis():
     def calcTimeOffset(self):
         now = time.time()
         timeseries = self.__getBinData(
-            ids=[self.config['liveValues']['offsetMstId']], nNmbX=60, TimeR=int(now), nCT=1)
+            ids=[self.config['liveValues']['offsetMstId']], nNmbX=120, TimeR=int(now), nCT=1)
         lastMeasuredTime = timeseries[~np.isnan(
             np.array(timeseries[timeseries.dtype.names[1]]))][-1][0]
         now = int(time.time())
@@ -198,7 +225,7 @@ class Tebis():
     def loadReductions(self):
         array = np.dtype([('ID', (np.int64)), ('Reduction', (np.int64))])
         data = self.getConfigData("RsRedCTs", array)
-        self.reductions = np.floor_divide((data)['Reduction'], 1000).tolist()
+        self.reductions = np.floor_divide((data)['Reduction'], 1).tolist()
         None
 
     def checkIfReductionAvailable(self, reduction):
@@ -686,26 +713,15 @@ class Tebis():
 # endregion
 
 # region Socket handling
-    
+
     def socketConnect(self):
-        try:
-            self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.sock.connect((self.config['host'], self.config['port']))
-            logging.debug(f"Connect to Tebis-Socket {self.config['host']}:{self.config['port']}")
-            self.socketReconnectTimer = 0
-        except:
-            time.sleep(1)
-            self.socketClose()
-            self.socketReconnectTimer += 1
-            while self.socketReconnectTimer <10:
-                self.socketConnect()
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock.connect((self.config['host'], self.config['port']))
+        logging.debug(f"Connect to Tebis-Socket {self.config['host']}:{self.config['port']}")
 
     def socketClose(self):
-        try:
-            self.sock.shutdown(1)
-            self.sock.close()
-        except:
-            None
+        self.sock.shutdown(1)
+        self.sock.close()
 
     def sendOnSocket(self, msg):
         totalsent = 0
@@ -746,7 +762,9 @@ class Tebis():
     """
 
     def __getBinData(self, ids=None, nCT=1, nNmbX=1, TimeR=time.time()):
-        start = time.time()
+        start = round(time.time() * 1000)
+        #TimeR = TimeR * 1000.0
+        nCT = int(nCT*1000.0)
         nCT = self.checkIfReductionAvailable(nCT)
         if TimeR > start:
             dif = int(TimeR - start) / int(nCT)
@@ -775,9 +793,9 @@ class Tebis():
                 strRequest += "<szProcedure>LoadData</szProcedure>\n"
                 strRequest += "<arrMsts>" + arrMsts + "</arrMsts>\n"
                 strRequest += "<nNmbX>" + str(nNmbX) + "</nNmbX>\n"
-                strRequest += "<nCT>" + str(int(nCT) * 1000) + "</nCT>\n"
+                strRequest += "<nCT>" + str(int(nCT)) + "</nCT>\n"
                 strRequest += "<nTimeR>" + \
-                    str(timeR_new * 1000) + "</nTimeR>\n"
+                    str(timeR_new) + "</nTimeR>\n"
                 strRequest += "<tebis>"
                 try:
                     self.socketConnect()
@@ -785,11 +803,7 @@ class Tebis():
                     self.sendOnSocket(strRequest)
                     # Recieve MSTS Packet
                     MSTSRaw = self.receiveOnSocket()
-                except:
-                    try:
-                        self.socketClose()
-                    except:
-                        None
+                except TebisException:
                     self.socketConnect()
                     # Send Request
                     self.sendOnSocket(strRequest)
@@ -798,7 +812,7 @@ class Tebis():
                 data = self.__checkBinaryResultHeader(
                     MSTSRaw, types, data, offset)
                 offset += len(ids)
-        data['timestamp'] = data['timestamp'] / 1000
+            #data['timestamp'] = data['timestamp'] / 1000.0
         return data
 
     """

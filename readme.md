@@ -38,16 +38,22 @@ teb = tebis.Tebis(configuration=configuration)
 
 ```python
 configuration = {
-            'host': '192.168.1.10', # The tebis host IP Adr
-            'port': 4712, # Tebis Port [4712]
-            'configfile': 'd:/tebis/Anlage/Config.txt', # Tebis config file location on the server -> ask your admin
-            'useOracle': None,  # Optional: can be True or False - False to Switch off the DB usage
-            'OracleDbConn': { # The Oracle Connection
-                'host': '192.168.1.10', # IP Adr
-                'port': 1521, # Port [1521]
-                'user': None, # Oracle username
-                'psw': None, #Oracle pwd
-                'service': 'XE'
+            'host': None, #Your Server IP-Adress
+            'port': 4712, #Communication port [4712]
+            'configfile': 'd:/tebis/Anlage/Config.txt', #Your tebis Instance to connect to.
+            'useOracle': None,  # use Oracle true / false, Opt. if not defined a defined OracleDbConn.Host will set it to true. Use false to deactive Oracle usage
+            'OracleDbConn': {
+                'host': None,  # Host IP-Adr
+                'port': 1521,  # host port [1521]
+                'schema': None,  # schema name opt. if not set user is used as schema name
+                'user': None,  # db user
+                'psw': None,  # db pwd
+                'service': 'XE'  # Oracle service name
+            },
+            'liveValues': {
+                'enable': False,    # Use LiveValue Feature - This is used to compensate possible timedrifts between the Tebis Server and the Client.
+                'recalcTimeOffsetEvery': 600,  # When using LiveValues recalc TimeOffset every x Seconds
+                'offsetMstId': 100025,  # This is the Mst which is used to calculate the last available Timestamp. Use a always available mst.
             }
         }
 teb = tebis.Tebis(configuration=configuration)
@@ -61,9 +67,19 @@ Parameters:
 `result = teb.getDataAsJson(names, start, end, rate=1)`
 
 - names = Array of all mst-names to read. You can pass a array of IDs, names, TebisMst-Objects or Group-Objects (even mixed).
-- start = Unix-Timestamp where to start the read (must be in the same timezone as the server is)
-- end = Unix-Timestamp where to end the read (must be in the same timezone as the server is)
-- rate = What reduction should be used for the read
+- start = Unix-Timestamp where to start the read 
+          - or -
+          DateTimeObject
+          - or -
+          String in Format '%Y-%m-%d %H:%M:%S.%f'
+          (always the same timezone as the server is)
+- end = Unix-Timestamp where to end the read
+          - or -
+          DateTimeObject
+          - or -
+          String in Format '%Y-%m-%d %H:%M:%S.%f'
+          (always the same timezone as the server is)
+- rate = What reduction should be used for the read. If your System supports Values smaller than 1second use Fractions of Seconds. eg: 0.1 for 100ms
 
 The Data which is returned by the TeBIS-Server is vectorized into a structured numpy array. Which is working super fast and is totally comparable with the performance of the TeBIS A Client. You can use different functions to get the data in std. Python formats for further analysis.
 
