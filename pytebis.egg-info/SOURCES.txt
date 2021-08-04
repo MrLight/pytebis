@@ -1,3 +1,5 @@
+LICENSE
+README.md
 setup.cfg
 setup.py
 pytebis/__init__.py
