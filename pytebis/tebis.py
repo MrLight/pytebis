@@ -359,7 +359,7 @@ class Tebis():
 
     def loadVmstsFromSocket(self):
         array = np.dtype([('ID', (np.int64)), ('MSTName', np.unicode_, 100), ('UNIT', 'U10'), (
-            'MSTDesc', np.unicode_, 255), ('Rate', (np.int)), ('Formula', np.unicode_, 255), ('refresh', (np.int))])
+            'MSTDesc', np.unicode_, 255), ('Rate', (np.int64)), ('Formula', np.unicode_, 255), ('refresh', (np.int64))])
         data = self.getConfigData("VMsts", array)
         return data
 
