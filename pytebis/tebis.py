@@ -463,9 +463,9 @@ class Tebis():
                         intInc = np.int64(result[m_intPos])
                         m_intPos += 1
                     elif np.issubdtype(resultarr[resultarr.dtype.names[x]].dtype, np.floating):
-                        intStart = np.float(result[m_intPos])
+                        intStart = np.float64(result[m_intPos])
                         m_intPos += 1
-                        intInc = np.float(result[m_intPos])
+                        intInc = np.float64(result[m_intPos])
                         m_intPos += 1
                     resultarr[resultarr.dtype.names[x]][y:(y + intStackLen)] = np.linspace(
                         intStart, intStart + (intStackLen * intInc) - intInc, num=intStackLen)
@@ -519,7 +519,7 @@ class Tebis():
                     find = np.nonzero(value == '')
                     for res in find[0]:
                         value[res] = np.NaN
-                    value = np.array(value, dtype=np.float)
+                    value = np.array(value, dtype=np.float64)
                 except ValueError as e:
                     None
             else:
