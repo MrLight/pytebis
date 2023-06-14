@@ -5,4 +5,5 @@ dist/
 test.py
 TebisMultiprocess.py
 sql.py
+pytebis/main.py
 *.pyc

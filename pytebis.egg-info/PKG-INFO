@@ -1,12 +1,11 @@
 Metadata-Version: 2.1
 Name: pytebis
-Version: 0.5.1
+Version: 0.5.2
 Summary: Python Connector for TeBIS from Steinhaus
 Home-page: https://github.com/MrLight/pytebis
 Author: MrLight
 Author-email: mrlight1@gmx.de
 License: mit
-Download-URL: https://github.com/MrLight/pytebis/archive/v0.1.1-alpha.tar.gz
 Keywords: Python,Connector,TeBIS,Steinhaus
 Platform: UNKNOWN
 Classifier: Development Status :: 4 - Beta
