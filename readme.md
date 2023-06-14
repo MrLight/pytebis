@@ -67,13 +67,21 @@ Parameters:
 `result = teb.getDataAsJson(names, start, end, rate=1)`
 
 - names = Array of all mst-names to read. You can pass a array of IDs, names, TebisMst-Objects or Group-Objects (even mixed).
-- start = Unix-Timestamp where to start the read 
+- start = Unix-Timestamp where to start the read
+          - or -
+          Unix-Timestamp in microsecond precision
+          - or - 
+          float value where the fraction is the microseconds part
           - or -
           DateTimeObject
           - or -
           String in Format '%Y-%m-%d %H:%M:%S.%f'
           (always the same timezone as the server is)
 - end = Unix-Timestamp where to end the read
+          - or -
+          Unix-Timestamp in microsecond precision
+          - or - 
+          float value where the fraction is the microseconds part
           - or -
           DateTimeObject
           - or -
@@ -95,16 +103,27 @@ You can directly access the elements e.g. by indexing them by name `resNP["times
 #### as Pandas
 
 ```python
-df = teb.getDataAsPD(['My_mst_1','My_mst_2'], 1581324153, 1581325153, 10)
+df = teb.getDataAsPD([13, 14, 15, 16],  [[1626779900,1626779930],[1626779950,1626779960]],1)
 ```
 
-The Pandas DataFrame will not return a column with the timestamp. But a DateTimeIndex. So you can directly use this for TimeSeries Operations. The creation of the Pandas Dataframe is a bit slower than the generic NumPy function, as the DataFrame and the DateTimeIndex is generated afterwards.
+The Pandas Function can even handel multiple slices of timeframes by adding start and endpoint into an array.
+
+```python
+df = teb.getDataAsPD(['My_mst_1','My_mst_2'], 1581324153, 1581325153, 10)
+```
 
 #### as Json
 
 ```python
 resJSON = teb.getDataAsJson(['My_mst_1','My_mst_2'], 1581324153, 1581325153, 10)
 ```
+
+#### as Rawvalues
+
+```python
+resJSON = teb.getDataRAW(['My_mst_1','My_mst_2'], 1581324153, 1581325153, 10)
+```
+Returns the raw tebis socket data. This could be used if the value calculation should happen on the clientside. e.g. if you want to save bandwidth and gain speed in a client server setup.
 
 #### Example
 
