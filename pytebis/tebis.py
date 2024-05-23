@@ -77,21 +77,21 @@ class Tebis():
             if id is not None:
                 ids.append(id)
         if isinstance(start, datetime.datetime):
-            start = start.timestamp()
+            start = start.timestamp()*1000.0
         elif isinstance(start, float):
             start = start*1000.0
         elif isinstance(start, int) and start < 100000000000: #and start > 100000000000 and start < 100000000000000:
             start = start*1000.0
         elif isinstance(start, str):
-            start = datetime.datetime.strptime(start, '%Y-%m-%d %H:%M:%S.%f').timestamp()
+            start = datetime.datetime.strptime(start, '%Y-%m-%d %H:%M:%S.%f').timestamp()*1000.0
         if isinstance(end, datetime.datetime):
-            end = end.timestamp()
+            end = end.timestamp()*1000.0
         elif isinstance(end, float):
             end = end*1000.0
         elif isinstance(end, int) and end < 100000000000: #and start > 100000000000 and start < 100000000000000:
             end = end*1000.0
         elif isinstance(end, str):
-            end = datetime.datetime.strptime(end, '%Y-%m-%d %H:%M:%S.%f').timestamp()
+            end = datetime.datetime.strptime(end, '%Y-%m-%d %H:%M:%S.%f').timestamp()*1000.0
 
         nCT = rate*1000.0
         nTimeR = end
@@ -129,21 +129,21 @@ class Tebis():
             if id is not None:
                 ids.append(id)
         if isinstance(start, datetime.datetime):
-            start = start.timestamp()
+            start = start.timestamp()*1000.0
         elif isinstance(start, float):
             start = start*1000.0
         elif isinstance(start, int) and start < 100000000000: #and start > 100000000000 and start < 100000000000000:
             start = start*1000.0
         elif isinstance(start, str):
-            start = datetime.datetime.strptime(start, '%Y-%m-%d %H:%M:%S.%f').timestamp()
+            start = datetime.datetime.strptime(start, '%Y-%m-%d %H:%M:%S.%f').timestamp()*1000.0
         if isinstance(end, datetime.datetime):
-            end = end.timestamp()
+            end = end.timestamp()*1000.0
         elif isinstance(end, float):
             end = end*1000.0
         elif isinstance(end, int) and end < 100000000000: #and start > 100000000000 and start < 100000000000000:
             end = end*1000.0
         elif isinstance(end, str):
-            end = datetime.datetime.strptime(end, '%Y-%m-%d %H:%M:%S.%f').timestamp()
+            end = datetime.datetime.strptime(end, '%Y-%m-%d %H:%M:%S.%f').timestamp()*1000.0
 
         nCT = rate*1000.0
         nTimeR = end
