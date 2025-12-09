@@ -387,8 +387,8 @@ class Tebis():
 
     # TODO: Groups to Object
     def loadGroupsFromSocket(self):
-        array = np.dtype([('ID', (np.int64)), ('GrpName', np.unicode_, 100),
-                          ('GroupDesc', np.unicode_, 100), ('Group1', np.unicode_, 100)])
+        array = np.dtype([('ID', (np.int64)), ('GrpName', np.str_, 100),
+                          ('GroupDesc', np.str_, 100), ('Group1', np.str_, 100)])
         data = self.getConfigData("Grps", array)
 
     def loadMstsnVMstsFromSocket(self):
@@ -403,14 +403,14 @@ class Tebis():
         self.mstById = build_dict(self.msts, key="id")
 
     def loadMstsFromSocket(self):
-        array = np.dtype([('ID', (np.int64)), ('MSTName', np.unicode_, 100), ('UNIT', np.unicode_, 10), ('MSTDesc', np.unicode_, 255), (
+        array = np.dtype([('ID', (np.int64)), ('MSTName', np.str_, 100), ('UNIT', np.str_, 10), ('MSTDesc', np.str_, 255), (
             'Val1', (np.float32)), ('Val2', (np.float32)), ('Val3', (np.float32)), ('Val4', (np.float32)), ('Val5', (np.float32))])
         data = self.getConfigData("Msts", array)
         return data
 
     def loadVmstsFromSocket(self):
-        array = np.dtype([('ID', (np.int64)), ('MSTName', np.unicode_, 100), ('UNIT', 'U10'), (
-            'MSTDesc', np.unicode_, 255), ('Rate', (np.int64)), ('Formula', np.unicode_, 255), ('refresh', (np.int64))])
+        array = np.dtype([('ID', (np.int64)), ('MSTName', np.str_, 100), ('UNIT', 'U10'), (
+            'MSTDesc', np.str_, 255), ('Rate', (np.int64)), ('Formula', np.str_, 255), ('refresh', (np.int64))])
         data = self.getConfigData("VMsts", array)
         return data
 
