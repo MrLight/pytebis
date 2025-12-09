@@ -159,20 +159,18 @@ class Tebis():
 
     def getDataAsPD(self, names, start, end = None, rate=1):
         if isinstance(start, list) and all(isinstance(elem, list) for elem in start):
-            df = None
+            dfs = []
             for tuple in start:
-                if df is None:
-                    df = pd.DataFrame(self.getDataAsNP(names, tuple[0], tuple[1], rate))            
-                else:
-                    df = df.append(pd.DataFrame(self.getDataAsNP(names, tuple[0], tuple[1], rate)))
+                dfs.append(pd.DataFrame(self.getDataAsNP(names, tuple[0], tuple[1], rate)))
+            df = pd.concat(dfs, ignore_index=True)
             df = df.set_index(pd.DatetimeIndex(pd.to_datetime(df['timestamp'], unit='ms').dt.tz_localize('UTC').dt.tz_convert('Europe/Berlin').dt.tz_localize(None)))
-            df.drop(columns=['timestamp'], inplace=True)
+            df = df.drop(columns=['timestamp'])
             # df['timestamp'] = df.index
-            df.sort_index(inplace=True)
+            df = df.sort_index()
         elif end is not None:
             df = pd.DataFrame(self.getDataAsNP(names, start, end, rate))
             df = df.set_index(pd.DatetimeIndex(pd.to_datetime(df['timestamp'], unit='ms').dt.tz_localize('UTC').dt.tz_convert('Europe/Berlin').dt.tz_localize(None)))
-            df.drop(columns=['timestamp'], inplace=True)
+            df = df.drop(columns=['timestamp'])
         # df['timestamp'] = df.index
         return df
 

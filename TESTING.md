@@ -77,7 +77,14 @@ Die Test-Suite für pytebis enthält **48 Unit- und Integrationstests**, die ver
 - Mixed dtype Arrays
 - Structured Arrays mit Strings
 
-**Hinweis**: In NumPy 2.0 wurde `np.unicode_` entfernt. Alle Vorkommen wurden durch `np.str_` ersetzt. Details siehe [NUMPY2_MIGRATION.md](NUMPY2_MIGRATION.md)
+### ✅ Pandas 2.0 Breaking Changes
+- `pd.concat()` statt `df.append()` (behoben)
+- DataFrame concatenation Tests
+
+**Hinweise**: 
+- In NumPy 2.0 wurde `np.unicode_` entfernt → Alle Vorkommen durch `np.str_` ersetzt
+- In Pandas 2.0 wurde `df.append()` entfernt → Durch `pd.concat()` ersetzt
+- Details siehe [PANDAS2_MIGRATION.md](PANDAS2_MIGRATION.md)
 
 ## NumPy Version Test-Matrix
 
