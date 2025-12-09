@@ -1,5 +1,10 @@
 # pytebis Python Connector for TeBIS from Steinhaus
 
+![Tests](https://github.com/MrLight/pytebis/workflows/Tests/badge.svg)
+![PyPI](https://img.shields.io/pypi/v/pytebis)
+![Python](https://img.shields.io/pypi/pyversions/pytebis)
+![License](https://img.shields.io/github/license/MrLight/pytebis)
+
 pytebis is a connector for interacting with a TeBIS Server.
 
 The connector can return structured data in a defined timespan with defined measuring points.
@@ -9,8 +14,19 @@ Alarms are currently not supported.
 
 ## Install the package
 
-```python
+```bash
 pip install pytebis
+```
+
+## Development Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/MrLight/pytebis.git
+cd pytebis
+
+# Install with development dependencies
+pip install -e .[dev]
 ```
 
 ## Usage

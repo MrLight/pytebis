@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pytebis"
-version = "0.5.13"
+version = "0.5.14-dev"
 description = "Python Connector for TeBIS from Steinhaus"
 readme = "readme.md"
 license = {text = "MIT"}
@@ -33,6 +33,13 @@ dependencies = [
     "numpy",
     "pandas",
     "simplejson",
+    "python-dateutil",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
 ]
 
 [project.urls]
@@ -41,3 +48,32 @@ Repository = "https://github.com/MrLight/pytebis"
 
 [tool.setuptools]
 packages = ["pytebis"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--verbose",
+    "--strict-markers",
+    "--tb=short",
+]
+
+[tool.coverage.run]
+source = ["pytebis"]
+omit = [
+    "*/tests/*",
+    "*/__pycache__/*",
+    "*/venv/*",
+    "*/.venv/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+]
