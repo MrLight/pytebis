@@ -1056,7 +1056,7 @@ class TebisTreeElement:
         self.name = elem[3]
 
     def findNodeByID(self, x):
-        if self.id is x:
+        if self.id == x:
             return self
         for node in self.childs:
             n = node.findNodeByID(x)
