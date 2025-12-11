@@ -110,7 +110,7 @@ class Tebis():
         return getDataSeries_as_Json(self.getDataAsNP(names, start, end, rate))
 
     # returns RawData for Client based Converters like Javascript
-    def getDataRAW(self,filepath, names, start, end, rate=1):
+    def getDataRAW(self, names, start, end, rate=1, filepath=None):
         ids = []
         # find Mst with id as a number, id as MST name a str, id
         for name in names:
@@ -155,7 +155,7 @@ class Tebis():
         if nNmbX <= 0:
             nNmbX = 1
         
-        return self.getBinDataRAW(filepath,ids=ids, nNmbX=nNmbX, TimeR=nTimeR, nCT=nCT/1000.0)
+        return self.getBinDataRAW(ids=ids, nNmbX=nNmbX, TimeR=nTimeR, nCT=nCT/1000.0, filepath=filepath)
 
     def getDataAsPD(self, names, start, end = None, rate=1):
         if isinstance(start, list) and all(isinstance(elem, list) for elem in start):
@@ -801,7 +801,7 @@ class Tebis():
         return b''.join(chunks)
 
 # endregion
-    def getBinDataRAW(self, filepath, ids=None, nCT=1, nNmbX=1, TimeR=time.time()):
+    def getBinDataRAW(self, ids=None, nCT=1, nNmbX=1, TimeR=time.time(), filepath=None):
         
         start = round(time.time() * 1000)
         #TimeR = TimeR * 1000.0
@@ -863,8 +863,9 @@ class Tebis():
                 #    MSTSRaw, types, data, offset)
                 #offset += len(ids)
             #data['timestamp'] = data['timestamp'] / 1000.0
-            with open(filepath, 'ab') as fpout:
-                fpout.write(rawdata)
+            if (filepath is not None):
+                with open(filepath, 'ab') as fpout:
+                    fpout.write(rawdata)
             #print(os.path.getsize(filepath))
         return rawdata
     
