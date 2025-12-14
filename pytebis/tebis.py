@@ -10,6 +10,7 @@ import datetime
 from json import JSONEncoder
 import simplejson
 from io import StringIO
+from zoneinfo import ZoneInfo
 import csv
 from pytebis.lazyloader import LazyLoader
 import logging
@@ -26,6 +27,7 @@ class Tebis():
             'host': None,
             'port': 4712,
             'configfile': 'd:/tebis/Anlage/Config.txt',
+            'serverTZ': 'Europe/Berlin',
             'useOracle': None,  # use Oracle true / false, Opt. if not defined a defined OracleDbConn.Host will set it to true. Use false to deactive Oracle usage
             'OracleDbConn': {
                 'host': None,  # Host IP-Adr
@@ -56,9 +58,24 @@ class Tebis():
         self.refreshMsts()
         if self.config['liveValues']['enable'] == True:
             self.setupLiveValues()
+    
+    def getDataAsPD(self, names, start, end = None, rate=1, TZ='Europe/Berlin'):
+        df = pd.DataFrame(self.getDataAsNP(names, start, end, rate, TZ=TZ))
+        df = df.set_index(pd.DatetimeIndex(pd.to_datetime(df['timestamp'], unit='ms').dt.tz_localize('UTC').dt.tz_convert(self.config['serverTZ']).dt.tz_convert(TZ)))
+        df = df.drop(columns=['timestamp'])
+        # df['timestamp'] = df.index
+        return df
         
+    def getDataAsNP(self, names, start, end=None, rate=1, TZ='Europe/Berlin'):
+        if isinstance(start, list) and all(isinstance(elem, list) for elem in start) and end is None:
+            arrays = []
+            for tuple in start:
+                arrays.append(self.__getDataAsNP(names, tuple[0], tuple[1], rate, TZ))
+            return np.concatenate(arrays)
+        else:
+            return self.__getDataAsNP(names, start, end, rate, TZ)
 
-    def getDataAsNP(self, names, start, end, rate=1):
+    def __getDataAsNP(self, names, start, end, rate=1, TZ='Europe/Berlin'):
         ids = []
         # find Mst with id as a number, id as MST name a str, id
         for name in names:
@@ -76,23 +93,12 @@ class Tebis():
                 id = name.mst.id
             if id is not None:
                 ids.append(id)
-        if isinstance(start, datetime.datetime):
-            start = start.timestamp()*1000.0
-        elif isinstance(start, float):
-            start = start*1000.0
-        elif isinstance(start, int) and start < 100000000000: #and start > 100000000000 and start < 100000000000000:
-            start = start*1000.0
-        elif isinstance(start, str):
-            start = datetime.datetime.strptime(start, '%Y-%m-%d %H:%M:%S.%f').timestamp()*1000.0
-        if isinstance(end, datetime.datetime):
-            end = end.timestamp()*1000.0
-        elif isinstance(end, float):
-            end = end*1000.0
-        elif isinstance(end, int) and end < 100000000000: #and start > 100000000000 and start < 100000000000000:
-            end = end*1000.0
-        elif isinstance(end, str):
-            end = datetime.datetime.strptime(end, '%Y-%m-%d %H:%M:%S.%f').timestamp()*1000.0
+                
+        start = self.__processTime(start, TZ)
+        end = self.__processTime(end, TZ)
 
+        if start > end:
+            raise TebisException('Start time must be less than end time!')
         nCT = rate*1000.0
         nTimeR = end
         nTimeR = (int(float(nTimeR)) / int(nCT)) * int(nCT)
@@ -106,11 +112,12 @@ class Tebis():
         return self.__getBinData(ids=ids, nNmbX=nNmbX, TimeR=nTimeR, nCT=nCT/1000.0)
 
 
+
     def getDataAsJson(self, names, start, end, rate=1):
         return getDataSeries_as_Json(self.getDataAsNP(names, start, end, rate))
 
     # returns RawData for Client based Converters like Javascript
-    def getDataRAW(self, names, start, end, rate=1, filepath=None):
+    def getDataRAW(self, names, start, end, rate=1, TZ='Europe/Berlin', filepath=None):
         ids = []
         # find Mst with id as a number, id as MST name a str, id
         for name in names:
@@ -128,22 +135,9 @@ class Tebis():
                 id = name.mst.id
             if id is not None:
                 ids.append(id)
-        if isinstance(start, datetime.datetime):
-            start = start.timestamp()*1000.0
-        elif isinstance(start, float):
-            start = start*1000.0
-        elif isinstance(start, int) and start < 100000000000: #and start > 100000000000 and start < 100000000000000:
-            start = start*1000.0
-        elif isinstance(start, str):
-            start = datetime.datetime.strptime(start, '%Y-%m-%d %H:%M:%S.%f').timestamp()*1000.0
-        if isinstance(end, datetime.datetime):
-            end = end.timestamp()*1000.0
-        elif isinstance(end, float):
-            end = end*1000.0
-        elif isinstance(end, int) and end < 100000000000: #and start > 100000000000 and start < 100000000000000:
-            end = end*1000.0
-        elif isinstance(end, str):
-            end = datetime.datetime.strptime(end, '%Y-%m-%d %H:%M:%S.%f').timestamp()*1000.0
+
+        start = self.__processTime(start, TZ)
+        end = self.__processTime(end, TZ)
 
         nCT = rate*1000.0
         nTimeR = end
@@ -157,22 +151,7 @@ class Tebis():
         
         return self.getBinDataRAW(ids=ids, nNmbX=nNmbX, TimeR=nTimeR, nCT=nCT/1000.0, filepath=filepath)
 
-    def getDataAsPD(self, names, start, end = None, rate=1):
-        if isinstance(start, list) and all(isinstance(elem, list) for elem in start):
-            dfs = []
-            for tuple in start:
-                dfs.append(pd.DataFrame(self.getDataAsNP(names, tuple[0], tuple[1], rate)))
-            df = pd.concat(dfs, ignore_index=True)
-            df = df.set_index(pd.DatetimeIndex(pd.to_datetime(df['timestamp'], unit='ms').dt.tz_localize('UTC').dt.tz_convert('Europe/Berlin').dt.tz_localize(None)))
-            df = df.drop(columns=['timestamp'])
-            # df['timestamp'] = df.index
-            df = df.sort_index()
-        elif end is not None:
-            df = pd.DataFrame(self.getDataAsNP(names, start, end, rate))
-            df = df.set_index(pd.DatetimeIndex(pd.to_datetime(df['timestamp'], unit='ms').dt.tz_localize('UTC').dt.tz_convert('Europe/Berlin').dt.tz_localize(None)))
-            df = df.drop(columns=['timestamp'])
-        # df['timestamp'] = df.index
-        return df
+
 
     def getMapTreeGroupById(self, id):
         if self.config['useOracle'] is True:
@@ -377,6 +356,26 @@ class Tebis():
 
 # region Config Data from Socket
 
+    def __processTime(self, time_input, TZ):
+        if isinstance(time_input, datetime.datetime):
+            time_input = time_input
+        elif isinstance(time_input, float) or isinstance(time_input, int):
+            # Erkennen ob Millisekunden (>= Jahr 2001) oder Sekunden
+            if time_input >= 1000000000000:  # Millisekunden
+                time_input = datetime.datetime.fromtimestamp(time_input / 1000.0, ZoneInfo(TZ))
+            else:  # Sekunden
+                time_input = datetime.datetime.fromtimestamp(time_input, ZoneInfo(TZ))
+        elif isinstance(time_input, str):
+            time_input = parse_flexible_datetime(time_input)
+        # Wenn keine Zeitzone, TZ zuweisen
+        if time_input.tzinfo is None:
+            time_input = time_input.replace(tzinfo=ZoneInfo(TZ))
+        # Zur Server-Zeitzone konvertieren
+        time_input = time_input.astimezone(ZoneInfo(self.config['serverTZ']))
+        # Zu Millisekunden konvertieren
+        time_input = time_input.timestamp()*1000.0
+        return time_input
+    
     # TODO: Add Data to Object
     def loadRsCtsNmbX(self):
         array = np.dtype(
@@ -655,6 +654,9 @@ class Tebis():
                     m_intLength = segment[1]
                     value = struct.unpack('>qq', data[m_intPos:m_intPos + 16])
                     m_intStepSize = value[1]
+                    utc_offset_sec = -time.timezone
+                    utc_offset_hours = utc_offset_sec / 3600
+                    print(f"1. UTC Offset: {utc_offset_hours:+.1f} hours ({utc_offset_sec} seconds) {value[0]}")
                     if offset != 0:
                         x -= 1
                     else:
@@ -891,6 +893,7 @@ class Tebis():
         nNmbX = int(nNmbX - dif)
         n = 100
         data = None
+        print(f"Requesting {len(ids)} MSTs with nCT={nCT} and nNmbX={nNmbX} at TimeR={timeR_new} - TimeL={timeR_new-nCT*nNmbX}")
         types = [('timestamp', (np.int64))]
         for id in ids:
             mst = self.getMst(id=id)
@@ -1063,6 +1066,25 @@ class TebisTreeElement:
                 return n
         return None
 
+def parse_flexible_datetime(date_str):
+    """Parse datetime string with multiple format attempts"""
+    formats = [
+        '%Y-%m-%d %H:%M:%S.%f%z',     # Mit Mikrosekunden und Zeitzone
+        '%Y-%m-%d %H:%M:%S%z',         # Mit Zeitzone
+        '%Y-%m-%d %H:%M:%S.%f',        # Mit Mikrosekunden, ohne Zeitzone
+        '%Y-%m-%d %H:%M:%S',           # Ohne Mikrosekunden und Zeitzone
+        '%Y-%m-%dT%H:%M:%S.%f%z',      # ISO 8601 mit Zeitzone
+        '%Y-%m-%dT%H:%M:%S%z',         # ISO 8601 mit Zeitzone
+    ]
+    
+    for fmt in formats:
+        try:
+            dt = datetime.datetime.strptime(date_str, fmt)
+            return dt
+        except ValueError:
+            continue
+    
+    raise ValueError(f"Unable to parse date string: {date_str}")
 
 class TebisOracleDBException(Exception):
     ''' raise if try to get DB-Information without a DB Connection specifeied '''
