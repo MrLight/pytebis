@@ -654,9 +654,6 @@ class Tebis():
                     m_intLength = segment[1]
                     value = struct.unpack('>qq', data[m_intPos:m_intPos + 16])
                     m_intStepSize = value[1]
-                    utc_offset_sec = -time.timezone
-                    utc_offset_hours = utc_offset_sec / 3600
-                    print(f"1. UTC Offset: {utc_offset_hours:+.1f} hours ({utc_offset_sec} seconds) {value[0]}")
                     if offset != 0:
                         x -= 1
                     else:
@@ -833,7 +830,6 @@ class Tebis():
                 arrMsts += str(id) + ', '
                 rawdata.extend(id.item().to_bytes(8,'big'))
             arrMsts = arrMsts[:-2]
-            #print(arrMsts)
             if nNmbX > 0:
                 strRequest = "<tebis>\n"
                 strRequest += "<szConfigFile>" + \
@@ -859,8 +855,6 @@ class Tebis():
                     MSTSRaw = self.receiveOnSocket()  
                 rawdata.extend(len(MSTSRaw).to_bytes(8,'big'))
                 rawdata.extend(MSTSRaw)
-                #print(len(ids)) 
-                #print(MSTSRaw)
                 #data = self.__checkBinaryResultHeader(
                 #    MSTSRaw, types, data, offset)
                 #offset += len(ids)
@@ -868,7 +862,6 @@ class Tebis():
             if (filepath is not None):
                 with open(filepath, 'ab') as fpout:
                     fpout.write(rawdata)
-            #print(os.path.getsize(filepath))
         return rawdata
     
     """
@@ -893,7 +886,6 @@ class Tebis():
         nNmbX = int(nNmbX - dif)
         n = 100
         data = None
-        print(f"Requesting {len(ids)} MSTs with nCT={nCT} and nNmbX={nNmbX} at TimeR={timeR_new} - TimeL={timeR_new-nCT*nNmbX}")
         types = [('timestamp', (np.int64))]
         for id in ids:
             mst = self.getMst(id=id)
