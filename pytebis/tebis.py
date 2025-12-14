@@ -65,7 +65,7 @@ class Tebis():
         df = df.drop(columns=['timestamp'])
         # df['timestamp'] = df.index
         return df
-        
+    
     def getDataAsNP(self, names, start, end=None, rate=1, TZ='Europe/Berlin'):
         if isinstance(start, list) and all(isinstance(elem, list) for elem in start) and end is None:
             arrays = []
@@ -75,6 +75,9 @@ class Tebis():
         else:
             return self.__getDataAsNP(names, start, end, rate, TZ)
 
+    def getDataAsJson(self, names, start, end, rate=1, TZ='Europe/Berlin'):
+        return getDataSeries_as_Json(self.getDataAsNP(names, start, end, rate, TZ=TZ))
+    
     def __getDataAsNP(self, names, start, end, rate=1, TZ='Europe/Berlin'):
         ids = []
         # find Mst with id as a number, id as MST name a str, id
@@ -113,8 +116,7 @@ class Tebis():
 
 
 
-    def getDataAsJson(self, names, start, end, rate=1):
-        return getDataSeries_as_Json(self.getDataAsNP(names, start, end, rate))
+    
 
     # returns RawData for Client based Converters like Javascript
     def getDataRAW(self, names, start, end, rate=1, TZ='Europe/Berlin', filepath=None):
