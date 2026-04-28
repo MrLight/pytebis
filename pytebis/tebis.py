@@ -37,10 +37,11 @@ class Tebis():
                 'psw': None,  # db pwd
                 'service': 'XE'  # Oracle service name
             },
+
             'liveValues': {
                 'enable': False,    # Use LiveValue Feature - This is used to compensate possible timedrifts between the Tebis Server and the Client.
                 'recalcTimeOffsetEvery': 600,  # When using LiveValues recalc TimeOffset every x Seconds
-                'offsetMstId': 100025,  # This is the Mst which is used to calculate the last available Timestamp. Use a always available mst.
+                'offsetMstId': 100001,  # This is the Mst which is used to calculate the last available Timestamp. Use a always available mst. e.g. always true and never nan
             }
         }
         self.config = selective_merge(default_conf, configuration)
@@ -588,6 +589,7 @@ class Tebis():
 
 # region binary result handling
     def __checkBinaryResultHeader(self, raw, dtype, resultarr=None, offset=0):
+        raw = bytes.fromhex('312c3236382cffffffff0007125d000b8b3fffffffff000000020000000200000e100000010c00001ea4789cedd0310e014114c6f1f7cc8609211aad287422d169b751e954eea0a0d42a94e2009b4814e20622080a51b8834ea1d3ea8690994cbcace87d9bfcb6f8efdb99d925e2aa21cae549778938aa14a23ebd2e757dde341b2600000000000000000000000000f80fba770ec7abd2219a5d381caf3bc3e2b2a544e11f4ac21663cbdd1bde2c1ad3d33ee10d7f1437a344715b644531b68cbc475b4e96cfb58c28812d395b58ccb883a5c5cc401425dee2f8999498a9c79fd015edfda8b8bdbeec6e6cf13f67d73cce6f934014ed2df82e6ec1b62d0fa4330c56ffffffff0007125d000b8b3fffffffff')
         m_intPos = 0
         m_intNmbResultSet = int(raw[m_intPos])
         m_intPos += 2
